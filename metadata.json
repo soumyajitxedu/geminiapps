@@ -1,0 +1,6 @@
+{
+  "name": "Focus Grove",
+  "description": "A cute, colorful pixel-art gamified ICSE Class 10 study tracker combining syllabus progress, 30-minute focus timer, virtual flower grove, and interactive quiz engine.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
