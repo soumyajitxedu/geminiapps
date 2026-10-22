@@ -112,9 +112,13 @@ fun SyllabusScreen(
     } else 0f
     val overallPercent = (overallProgress * 100).toInt()
 
-    val totalCheckpoints = allChapters.size * 5
+    val totalCheckpoints = allChapters.sumOf { if (it.isMaths) 5 else 3 }
     val completedCheckpoints = allChapters.sumOf {
-        (if (it.stepFundamental) 1 else 0) + (if (it.stepEx1) 1 else 0) + (if (it.stepEx2) 1 else 0) + (if (it.stepEx3) 1 else 0) + (if (it.stepPyqs) 1 else 0)
+        if (it.isMaths) {
+            (if (it.stepFundamental) 1 else 0) + (if (it.stepEx1) 1 else 0) + (if (it.stepEx2) 1 else 0) + (if (it.stepEx3) 1 else 0) + (if (it.stepPyqs) 1 else 0)
+        } else {
+            (if (it.stepFundamental || it.isLearned) 1 else 0) + (if (it.stepEx1 || it.isRevised) 1 else 0) + (if (it.stepPyqs || it.isPyqsDone) 1 else 0)
+        }
     }
 
     Box(
@@ -145,7 +149,7 @@ fun SyllabusScreen(
                                 )
                             )
                             Text(
-                                text = "Class 10 Board Curriculum • 5-Step Mastery",
+                                text = "Class 10 Board Curriculum • 5-Step Maths & 3-Step Core",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -200,7 +204,7 @@ fun SyllabusScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "5 Checkpoints: 1. Fundamental • 2. Exercise 1 • 3. Exercise 2 • 4. Exercise 3 • 5. PYQs / Revision",
+                                text = "Maths: 5 Checkpoints (Fundamental, Ex 1-3, PYQs) • Rest: 3 Checkpoints (Learned, Revised, PYQs)",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -466,7 +470,7 @@ fun SyllabusScreen(
                                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
                                     )
                                     Text(
-                                        text = "Target Date: Feb 22, 2027",
+                                        text = "Target Date: ${ExamCountdownUtil.BOARD_EXAM_DISPLAY}",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
@@ -587,74 +591,126 @@ fun ChapterRowWithCheckpoints(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 5-Step Checkpoint Chips (Row 1: Fundamental, Ex 1, Ex 2; Row 2: Ex 3, PYQs/Rev + % badge)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CheckpointPill(
-                label = "1. Fundamental",
-                checked = chapter.stepFundamental,
-                onClick = onToggleFundamental,
-                modifier = Modifier.weight(1f)
-            )
-            CheckpointPill(
-                label = "2. Ex 1",
-                checked = chapter.stepEx1,
-                onClick = onToggleEx1,
-                modifier = Modifier.weight(1f)
-            )
-            CheckpointPill(
-                label = "3. Ex 2",
-                checked = chapter.stepEx2,
-                onClick = onToggleEx2,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            CheckpointPill(
-                label = "4. Ex 3",
-                checked = chapter.stepEx3,
-                onClick = onToggleEx3,
-                modifier = Modifier.weight(1f)
-            )
-            CheckpointPill(
-                label = "5. PYQs / Rev",
-                checked = chapter.stepPyqs,
-                onClick = onTogglePyqs,
-                modifier = Modifier.weight(1.3f)
-            )
-
-            // Percent badge
-            Surface(
-                shape = RoundedCornerShape(6.dp),
-                color = when {
-                    completionPercent == 100 -> Color(0xFF10B981).copy(alpha = 0.2f)
-                    completionPercent >= 60 -> Color(0xFF3B82F6).copy(alpha = 0.2f)
-                    completionPercent >= 20 -> Color(0xFFF59E0B).copy(alpha = 0.2f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant
-                }
+        if (chapter.isMaths) {
+            // 5-Step Checkpoint Chips specifically for Maths
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "$completionPercent%",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = when {
-                        completionPercent == 100 -> Color(0xFF047857)
-                        completionPercent >= 60 -> Color(0xFF1D4ED8)
-                        completionPercent >= 20 -> Color(0xFFB45309)
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                CheckpointPill(
+                    label = "1. Fundamental",
+                    checked = chapter.stepFundamental,
+                    onClick = onToggleFundamental,
+                    modifier = Modifier.weight(1f)
                 )
+                CheckpointPill(
+                    label = "2. Ex 1",
+                    checked = chapter.stepEx1,
+                    onClick = onToggleEx1,
+                    modifier = Modifier.weight(1f)
+                )
+                CheckpointPill(
+                    label = "3. Ex 2",
+                    checked = chapter.stepEx2,
+                    onClick = onToggleEx2,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CheckpointPill(
+                    label = "4. Ex 3",
+                    checked = chapter.stepEx3,
+                    onClick = onToggleEx3,
+                    modifier = Modifier.weight(1f)
+                )
+                CheckpointPill(
+                    label = "5. PYQs / Rev",
+                    checked = chapter.stepPyqs,
+                    onClick = onTogglePyqs,
+                    modifier = Modifier.weight(1.3f)
+                )
+
+                // Percent badge
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = when {
+                        completionPercent == 100 -> Color(0xFF10B981).copy(alpha = 0.2f)
+                        completionPercent >= 60 -> Color(0xFF3B82F6).copy(alpha = 0.2f)
+                        completionPercent >= 20 -> Color(0xFFF59E0B).copy(alpha = 0.2f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ) {
+                    Text(
+                        text = "$completionPercent%",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            completionPercent == 100 -> Color(0xFF047857)
+                            completionPercent >= 60 -> Color(0xFF1D4ED8)
+                            completionPercent >= 20 -> Color(0xFFB45309)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        } else {
+            // 3-Step Checkpoint Chips for all other subjects
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CheckpointPill(
+                    label = "Learned",
+                    checked = chapter.stepFundamental || chapter.isLearned,
+                    onClick = onToggleFundamental,
+                    modifier = Modifier.weight(1f)
+                )
+                CheckpointPill(
+                    label = "Revised",
+                    checked = chapter.stepEx1 || chapter.isRevised,
+                    onClick = onToggleEx1,
+                    modifier = Modifier.weight(1f)
+                )
+                CheckpointPill(
+                    label = "PYQs Done",
+                    checked = chapter.stepPyqs || chapter.isPyqsDone,
+                    onClick = onTogglePyqs,
+                    modifier = Modifier.weight(1.1f)
+                )
+
+                // Percent badge
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = when {
+                        completionPercent == 100 -> Color(0xFF10B981).copy(alpha = 0.2f)
+                        completionPercent >= 66 -> Color(0xFF3B82F6).copy(alpha = 0.2f)
+                        completionPercent >= 33 -> Color(0xFFF59E0B).copy(alpha = 0.2f)
+                        else -> MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ) {
+                    Text(
+                        text = "$completionPercent%",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = when {
+                            completionPercent == 100 -> Color(0xFF047857)
+                            completionPercent >= 66 -> Color(0xFF1D4ED8)
+                            completionPercent >= 33 -> Color(0xFFB45309)
+                            else -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
     }

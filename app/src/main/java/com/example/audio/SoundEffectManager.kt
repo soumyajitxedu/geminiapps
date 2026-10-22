@@ -64,29 +64,29 @@ class SoundEffectManager(private val context: Context) {
         performHaptic(20)
         try {
             if (tapSoundId != 0) {
-                soundPool.play(tapSoundId, 0.7f, 0.7f, 1, 0, 1.0f)
+                soundPool.play(tapSoundId, 0.3f, 0.3f, 1, 0, 1.0f)
             }
         } catch (_: Exception) {}
     }
 
     /**
-     * Play selection pop sound + haptic.
+     * Play selection pop sound + haptic (soft 30% volume).
      */
     fun playUiSelect() {
-        performHaptic(30)
+        performHaptic(25)
         try {
             if (selectSoundId != 0) {
-                soundPool.play(selectSoundId, 0.85f, 0.85f, 1, 0, 1.0f)
+                soundPool.play(selectSoundId, 0.3f, 0.3f, 1, 0, 1.0f)
             }
         } catch (_: Exception) {}
     }
 
     /**
      * Play soft triumphant chime when a tree successfully finishes growing.
-     * Generates a warm ascending major chord chime (C5 -> E5 -> G5 -> C6).
+     * Generates a warm ascending major chord chime (C5 -> E5 -> G5 -> C6) at gentle 30% volume.
      */
     fun playTreeGrownChime() {
-        performHaptic(100)
+        performHaptic(80)
         scope.launch {
             try {
                 playToneSequence(listOf(523.25, 659.25, 783.99, 1046.50), durationMs = 180, isAscending = true)
@@ -98,10 +98,10 @@ class SoundEffectManager(private val context: Context) {
 
     /**
      * Play sad sound when a tree dies / withers.
-     * Generates a somber descending minor progression (G4 -> Eb4 -> C4).
+     * Generates a somber descending minor progression (G4 -> Eb4 -> C4) at gentle 30% volume.
      */
     fun playTreeDiedSound() {
-        performHaptic(350)
+        performHaptic(200)
         scope.launch {
             try {
                 playToneSequence(listOf(392.00, 311.13, 261.63, 196.00), durationMs = 280, isAscending = false)
@@ -125,10 +125,10 @@ class SoundEffectManager(private val context: Context) {
                     i < totalSamplesPerTone * 0.15 -> i / (totalSamplesPerTone * 0.15)
                     else -> 1.0 - (i.toDouble() / totalSamplesPerTone)
                 }
-                // Fundamental + soft harmonic
+                // Fundamental + soft harmonic at 30% volume
                 val sample = (kotlin.math.sin(2.0 * Math.PI * freq * t) * 0.75 +
                         kotlin.math.sin(4.0 * Math.PI * freq * t) * 0.25) * envelope
-                totalBuffer[offset++] = (sample * Short.MAX_VALUE * 0.45).toInt().toShort()
+                totalBuffer[offset++] = (sample * Short.MAX_VALUE * 0.15).toInt().toShort()
             }
         }
 

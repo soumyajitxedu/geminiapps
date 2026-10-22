@@ -10,7 +10,8 @@ object ExamCountdownUtil {
 
     // Official ICSE 2026-2027 Examination Timetable Target Dates
     const val PRE_BOARD_DATE = "2026-12-15"
-    const val BOARD_EXAM_DATE = "2027-02-22"
+    const val BOARD_EXAM_DATE = "2027-02-10"
+    const val BOARD_EXAM_DISPLAY = "Feb 10, 2027"
 
     /**
      * Calculates days remaining between the device's current date and the target date (yyyy-MM-dd).

@@ -59,19 +59,34 @@ data class ChapterProgress(
     val customUrl: String = "",
     val orderIndex: Int = 0
 ) {
+    val isMaths: Boolean
+        get() = subject.equals("Maths", ignoreCase = true) || subject.equals("Mathematics", ignoreCase = true)
+
     val completionFraction: Float
         get() {
-            var count = 0
-            if (stepFundamental) count++
-            if (stepEx1) count++
-            if (stepEx2) count++
-            if (stepEx3) count++
-            if (stepPyqs) count++
-            return count / 5f
+            return if (isMaths) {
+                var count = 0
+                if (stepFundamental) count++
+                if (stepEx1) count++
+                if (stepEx2) count++
+                if (stepEx3) count++
+                if (stepPyqs) count++
+                count / 5f
+            } else {
+                var count = 0
+                if (stepFundamental || isLearned) count++
+                if (stepEx1 || isRevised) count++
+                if (stepPyqs || isPyqsDone) count++
+                count / 3f
+            }
         }
 
     val isCompleted: Boolean
-        get() = stepFundamental && stepEx1 && stepEx2 && stepEx3 && stepPyqs
+        get() = if (isMaths) {
+            stepFundamental && stepEx1 && stepEx2 && stepEx3 && stepPyqs
+        } else {
+            (stepFundamental || isLearned) && (stepEx1 || isRevised) && (stepPyqs || isPyqsDone)
+        }
 }
 
 @Entity(tableName = "economy")

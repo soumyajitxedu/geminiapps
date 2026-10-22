@@ -241,55 +241,55 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `chapter 5-step checkpoints and notes update properly`() = runTest {
+    fun `chapter checkpoints - 5 steps for Maths, 3 steps for other subjects`() = runTest {
         repository.checkAndInitializeData()
         val chapters = repository.allChapters.first()
         assertTrue(chapters.isNotEmpty())
-        val firstChapter = chapters[0]
 
-        // Initially all checkpoints should be false
-        assertFalse(firstChapter.stepFundamental)
-        assertFalse(firstChapter.stepEx1)
-        assertFalse(firstChapter.stepEx2)
-        assertFalse(firstChapter.stepEx3)
-        assertFalse(firstChapter.stepPyqs)
-        assertEquals(0f, firstChapter.completionFraction)
+        val mathsChapter = chapters.first { it.isMaths }
+        val physicsChapter = chapters.first { !it.isMaths }
 
-        // Check 1: Fundamental (20%)
-        repository.setChapterFundamental(firstChapter.id, true)
-        var updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.stepFundamental)
-        assertEquals(0.2f, updated.completionFraction, 0.01f)
+        // Test Maths 5-step progress
+        assertEquals(0f, mathsChapter.completionFraction)
+        repository.setChapterFundamental(mathsChapter.id, true)
+        var updatedMaths = repository.allChapters.first().first { it.id == mathsChapter.id }
+        assertEquals(0.2f, updatedMaths.completionFraction, 0.01f)
 
-        // Check 2: Ex 1 (40%)
-        repository.setChapterEx1(firstChapter.id, true)
-        updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.stepEx1)
-        assertEquals(0.4f, updated.completionFraction, 0.01f)
+        repository.setChapterEx1(mathsChapter.id, true)
+        updatedMaths = repository.allChapters.first().first { it.id == mathsChapter.id }
+        assertEquals(0.4f, updatedMaths.completionFraction, 0.01f)
 
-        // Check 3: Ex 2 (60%)
-        repository.setChapterEx2(firstChapter.id, true)
-        updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.stepEx2)
-        assertEquals(0.6f, updated.completionFraction, 0.01f)
+        repository.setChapterEx2(mathsChapter.id, true)
+        updatedMaths = repository.allChapters.first().first { it.id == mathsChapter.id }
+        assertEquals(0.6f, updatedMaths.completionFraction, 0.01f)
 
-        // Check 4: Ex 3 (80%)
-        repository.setChapterEx3(firstChapter.id, true)
-        updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.stepEx3)
-        assertEquals(0.8f, updated.completionFraction, 0.01f)
+        repository.setChapterEx3(mathsChapter.id, true)
+        updatedMaths = repository.allChapters.first().first { it.id == mathsChapter.id }
+        assertEquals(0.8f, updatedMaths.completionFraction, 0.01f)
 
-        // Check 5: PYQs (100%)
-        repository.setChapterPyqs(firstChapter.id, true)
-        updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.stepPyqs)
-        assertEquals(1.0f, updated.completionFraction, 0.01f)
+        repository.setChapterPyqs(mathsChapter.id, true)
+        updatedMaths = repository.allChapters.first().first { it.id == mathsChapter.id }
+        assertEquals(1.0f, updatedMaths.completionFraction, 0.01f)
+
+        // Test Non-Maths 3-step progress (Learned / Revised / PYQs)
+        assertEquals(0f, physicsChapter.completionFraction)
+        repository.setChapterFundamental(physicsChapter.id, true)
+        var updatedPhysics = repository.allChapters.first().first { it.id == physicsChapter.id }
+        assertEquals(0.333f, updatedPhysics.completionFraction, 0.01f)
+
+        repository.setChapterEx1(physicsChapter.id, true)
+        updatedPhysics = repository.allChapters.first().first { it.id == physicsChapter.id }
+        assertEquals(0.666f, updatedPhysics.completionFraction, 0.01f)
+
+        repository.setChapterPyqs(physicsChapter.id, true)
+        updatedPhysics = repository.allChapters.first().first { it.id == physicsChapter.id }
+        assertEquals(1.0f, updatedPhysics.completionFraction, 0.01f)
 
         // Notes and Custom URL
-        repository.updateChapterNotesAndUrl(firstChapter.id, "**Key formulas**:\nF = ma", "https://drive.google.com/test-notes")
-        updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertEquals("**Key formulas**:\nF = ma", updated.notes)
-        assertEquals("https://drive.google.com/test-notes", updated.customUrl)
+        repository.updateChapterNotesAndUrl(physicsChapter.id, "**Key formulas**:\nF = ma", "https://drive.google.com/test-notes")
+        updatedPhysics = repository.allChapters.first().first { it.id == physicsChapter.id }
+        assertEquals("**Key formulas**:\nF = ma", updatedPhysics.notes)
+        assertEquals("https://drive.google.com/test-notes", updatedPhysics.customUrl)
     }
 
     @Test
