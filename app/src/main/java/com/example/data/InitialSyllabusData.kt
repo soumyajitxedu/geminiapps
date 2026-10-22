@@ -66,7 +66,11 @@ object InitialSyllabusData {
                         id = "${subject}_${chapterName.replace(" ", "_")}",
                         subject = subject,
                         chapterName = chapterName,
-                        isCompleted = false,
+                        isLearned = false,
+                        isRevised = false,
+                        isPyqsDone = false,
+                        notes = "",
+                        customUrl = "",
                         orderIndex = globalIndex++
                     )
                 )

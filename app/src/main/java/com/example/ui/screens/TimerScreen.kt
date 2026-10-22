@@ -1,10 +1,14 @@
 package com.example.ui.screens
 
+import android.net.Uri
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,10 +36,13 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Dangerous
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.MusicNote
+import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
@@ -52,8 +59,11 @@ import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.text.style.TextOverflow
+import com.example.ui.components.PixelAnimatedPet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
@@ -115,6 +125,23 @@ fun TimerScreen(
     val selectedChapter by viewModel.selectedChapter.collectAsStateWithLifecycle()
     val lastSessionResult by viewModel.lastSessionResult.collectAsStateWithLifecycle()
     val economy by viewModel.economy.collectAsStateWithLifecycle()
+    val customAudioUri by viewModel.customAudioUri.collectAsStateWithLifecycle()
+    val customAudioName by viewModel.customAudioName.collectAsStateWithLifecycle()
+    val isCustomAudioPlaying by viewModel.isCustomAudioPlaying.collectAsStateWithLifecycle()
+    val activeQuoteIndex by viewModel.activeQuoteIndex.collectAsStateWithLifecycle()
+    val activeGratitudeIndex by viewModel.activeGratitudeIndex.collectAsStateWithLifecycle()
+
+    val currentQuote = viewModel.motivationalQuotes.getOrElse(activeQuoteIndex) { "Stay focused!" }
+    val currentGratitude = viewModel.gratitudePrompts.getOrElse(activeGratitudeIndex) { "What are you thankful for today?" }
+
+    val audioPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "Selected Audio Track"
+            viewModel.setCustomAudio(uri, fileName)
+        }
+    }
 
     val currentSpecies = TreeSpecies.fromId(economy?.selectedSpecies ?: "OAK")
     val ambientSound = AmbientSound.fromId(economy?.activeAmbientSound ?: "NONE")
@@ -628,6 +655,157 @@ fun TimerScreen(
                 }
             }
 
+            // Custom Background Audio Player (Music/Lo-fi from phone storage)
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.MusicNote,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = customAudioName ?: "Study Audio (Loops in Background)",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Text(
+                                text = if (customAudioUri != null) {
+                                    if (isCustomAudioPlaying) "Playing & looping in background 🎵" else "Audio loaded • loops during focus"
+                                } else "Pick audio file from phone storage",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (customAudioUri != null) {
+                            IconButton(
+                                onClick = { viewModel.toggleCustomAudio() },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (isCustomAudioPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                                    contentDescription = "Toggle Audio",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                            IconButton(
+                                onClick = { viewModel.setCustomAudio(null, null) },
+                                modifier = Modifier.size(34.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Remove Audio",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { audioPickerLauncher.launch("audio/*") },
+                                shape = RoundedCornerShape(8.dp),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp)
+                            ) {
+                                Text("Pick Audio", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Mindful Study Fuel Card (Motivational Quote & Gratitude Prompt during focus)
+            if (isRunning) {
+                ElevatedCard(
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "✨ Motivational Fuel",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            TextButton(
+                                onClick = { viewModel.cycleQuote() },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("Next Quote ↻", fontSize = 11.sp)
+                            }
+                        }
+                        Text(
+                            text = currentQuote,
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🙏 Gratitude Reflection",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                            TextButton(
+                                onClick = { viewModel.cycleGratitude() },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp)
+                            ) {
+                                Text("New Prompt ↻", fontSize = 11.sp)
+                            }
+                        }
+                        Text(
+                            text = currentGratitude,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
             // Action Controls
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -688,9 +866,9 @@ fun TimerScreen(
                         }
                     }
 
-                    // Give Up Button (kills tree)
+                    // Give Up Button (Ends session immediately and tree dies)
                     OutlinedButton(
-                        onClick = { showGiveUpConfirmation = true },
+                        onClick = { viewModel.giveUp() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp)
@@ -713,11 +891,17 @@ fun TimerScreen(
                 }
 
                 Text(
-                    text = "⚠️ Leaving the app or switching to another app withers the tree immediately.",
+                    text = "⚠️ Tree dies ONLY if you press Give Up or leave the timer screen.",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = if (isFailed) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
+
+            // Animated Pet at bottom with motivational speech bubble
+            PixelAnimatedPet(
+                speechQuote = if (isRunning) "Focus on $selectedChapter! $currentQuote".take(42) + "..." else "Ready to plant a tree! Pick your subject! 🌿",
+                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+            )
         }
 
         // Chapter Selection Modal Dialog

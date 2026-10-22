@@ -32,8 +32,10 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 import com.example.data.calendar.GoogleCalendarManager
+import com.example.data.model.ResourceEntity
 import com.example.data.model.ScheduleEventEntity
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -65,8 +67,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         syllabusDao = database.syllabusDao(),
         economyDao = database.economyDao(),
         quizDao = database.quizDao(),
-        scheduleDao = database.scheduleDao()
+        scheduleDao = database.scheduleDao(),
+        resourceDao = database.resourceDao(),
+        userProfileDao = database.userProfileDao()
     )
+
+    val userProfile: StateFlow<com.example.data.model.UserProfileEntity?> = repository.userProfile
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     val calendarManager = GoogleCalendarManager(application)
     private val soundGenerator = AmbientSoundGenerator()
@@ -89,6 +96,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val allScheduleEvents: StateFlow<List<ScheduleEventEntity>> = repository.allScheduleEvents
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Library StateFlows
+    private val _selectedLibrarySubject = MutableStateFlow("All")
+    val selectedLibrarySubject: StateFlow<String> = _selectedLibrarySubject.asStateFlow()
+
+    private val _librarySearchQuery = MutableStateFlow("")
+    val librarySearchQuery: StateFlow<String> = _librarySearchQuery.asStateFlow()
+
+    val allResources: StateFlow<List<ResourceEntity>> = repository.allResources
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredResources: StateFlow<List<ResourceEntity>> = combine(
+        repository.allResources,
+        _selectedLibrarySubject,
+        _librarySearchQuery
+    ) { resources, subject, query ->
+        resources.filter { item ->
+            val matchesSubject = if (subject == "All") true else item.subject.equals(subject, ignoreCase = true)
+            val matchesQuery = if (query.isBlank()) true else item.title.contains(query, ignoreCase = true) || item.subject.contains(query, ignoreCase = true)
+            matchesSubject && matchesQuery
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun setLibrarySubject(subject: String) {
+        _selectedLibrarySubject.value = subject
+    }
+
+    fun setLibrarySearchQuery(query: String) {
+        _librarySearchQuery.value = query
+    }
 
     // Timer States
     private val _timerStatus = MutableStateFlow(TimerStatus.IDLE)
@@ -120,6 +157,89 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _lastSessionResult = MutableStateFlow<SessionResult?>(null)
     val lastSessionResult: StateFlow<SessionResult?> = _lastSessionResult.asStateFlow()
+
+    // Custom Audio Player State (Storage picker & loop during timer)
+    private var customMediaPlayer: android.media.MediaPlayer? = null
+    private val _customAudioUri = MutableStateFlow<android.net.Uri?>(null)
+    val customAudioUri: StateFlow<android.net.Uri?> = _customAudioUri.asStateFlow()
+    private val _customAudioName = MutableStateFlow<String?>(null)
+    val customAudioName: StateFlow<String?> = _customAudioName.asStateFlow()
+    private val _isCustomAudioPlaying = MutableStateFlow(false)
+    val isCustomAudioPlaying: StateFlow<Boolean> = _isCustomAudioPlaying.asStateFlow()
+
+    // Motivational Quotes & Gratitude Prompts for Focus Session
+    val motivationalQuotes = listOf(
+        "\"Small daily improvements over time lead to stunning results.\" — Robin Sharma",
+        "\"Focus is a muscle. The more you practice, the stronger it grows.\" — Cal Newport",
+        "\"You don't have to be extreme, just consistent.\" — Atomic Habits",
+        "\"The secret of getting ahead is getting started.\" — Mark Twain",
+        "\"Do what you have to do until you can do what you want to do.\" — Oprah Winfrey",
+        "\"Excellence is not an act, but a habit.\" — Aristotle",
+        "\"The future depends on what you do today.\" — Mahatma Gandhi",
+        "\"Deep work is the superpower of the 21st century.\" — Cal Newport"
+    )
+
+    val gratitudePrompts = listOf(
+        "Take a breath: What is one small thing you are thankful for today?",
+        "Reflect: Who supported you or brought a smile to your face recently?",
+        "Mindful moment: What part of your study journey are you proud of?",
+        "Gratitude: A warm drink, quiet space, or a peaceful moment right now.",
+        "Appreciate: The chance to learn, understand, and grow your intellect."
+    )
+
+    private val _activeQuoteIndex = MutableStateFlow(0)
+    val activeQuoteIndex: StateFlow<Int> = _activeQuoteIndex.asStateFlow()
+
+    private val _activeGratitudeIndex = MutableStateFlow(0)
+    val activeGratitudeIndex: StateFlow<Int> = _activeGratitudeIndex.asStateFlow()
+
+    fun cycleQuote() {
+        _activeQuoteIndex.value = (_activeQuoteIndex.value + 1) % motivationalQuotes.size
+    }
+
+    fun cycleGratitude() {
+        _activeGratitudeIndex.value = (_activeGratitudeIndex.value + 1) % gratitudePrompts.size
+    }
+
+    fun setCustomAudio(uri: android.net.Uri?, name: String?) {
+        stopCustomAudio()
+        _customAudioUri.value = uri
+        _customAudioName.value = name
+    }
+
+    fun playCustomAudio() {
+        val uri = _customAudioUri.value ?: return
+        try {
+            stopCustomAudio()
+            customMediaPlayer = android.media.MediaPlayer().apply {
+                setDataSource(getApplication<Application>(), uri)
+                isLooping = true
+                prepare()
+                start()
+            }
+            _isCustomAudioPlaying.value = true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            _isCustomAudioPlaying.value = false
+        }
+    }
+
+    fun stopCustomAudio() {
+        try {
+            customMediaPlayer?.stop()
+            customMediaPlayer?.release()
+        } catch (_: Exception) {}
+        customMediaPlayer = null
+        _isCustomAudioPlaying.value = false
+    }
+
+    fun toggleCustomAudio() {
+        if (_isCustomAudioPlaying.value) {
+            stopCustomAudio()
+        } else {
+            playCustomAudio()
+        }
+    }
 
     private var timerJob: Job? = null
 
@@ -181,7 +301,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.checkAndInitializeData()
+            repository.checkAndInitializeData(application)
         }
     }
 
@@ -242,6 +362,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val sound = AmbientSound.fromId(economy.value?.activeAmbientSound ?: "NONE")
         soundGenerator.start(sound)
 
+        // Loop custom picked audio if loaded
+        if (_customAudioUri.value != null) {
+            playCustomAudio()
+        }
+
         vibrate(100)
         timerJob?.cancel()
 
@@ -272,6 +397,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun completeCountdownSession() {
         soundGenerator.stop()
+        stopCustomAudio()
         _timerStatus.value = TimerStatus.COMPLETED
         val species = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK")
         val duration = _totalDurationSeconds.value
@@ -312,6 +438,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_timerStatus.value != TimerStatus.RUNNING) return
         timerJob?.cancel()
         soundGenerator.stop()
+        stopCustomAudio()
 
         val elapsed = _elapsedStopwatchSeconds.value
         val species = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK")
@@ -354,17 +481,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (_timerStatus.value != TimerStatus.RUNNING) return
         timerJob?.cancel()
         soundGenerator.stop()
+        stopCustomAudio()
 
         failSession("Gave up during focus session")
     }
 
-    // Called by LifecycleObserver on ON_STOP
-    fun onAppBackgrounded() {
+    // Called when the user leaves or navigates away from the Timer screen
+    fun onExitTimerScreen() {
         if (_timerStatus.value == TimerStatus.RUNNING) {
-            timerJob?.cancel()
-            soundGenerator.stop()
-            failSession("Left or backgrounded the app during focus")
+            giveUp()
         }
+    }
+
+    // Critical constraint: The timer runs in the foreground; tree dies ONLY on Give Up or exiting timer screen.
+    // Backgrounding does NOT kill the tree unless user explicitly gave up or navigated away.
+    fun onAppBackgrounded() {
+        // No-op to strictly fulfill foreground constraint where tree dies only on Give Up or leaving timer screen.
     }
 
     private fun failSession(reason: String) {
@@ -402,6 +534,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun resetTimerToIdle() {
         timerJob?.cancel()
         soundGenerator.stop()
+        stopCustomAudio()
         _timerStatus.value = TimerStatus.IDLE
         val demo = economy.value?.demoModeEnabled == true
         val duration = if (demo) 10 else (_customMinutes.value * 60)
@@ -444,6 +577,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun toggleChapterCompletion(chapterId: String, currentStatus: Boolean) {
         viewModelScope.launch {
             repository.setChapterCompletion(chapterId, !currentStatus)
+        }
+    }
+
+    // --- 3-Step Checkpoints & Notes ---
+    fun toggleChapterLearned(chapter: ChapterProgress) {
+        viewModelScope.launch {
+            repository.setChapterLearned(chapter.id, !chapter.isLearned)
+        }
+    }
+
+    fun toggleChapterRevised(chapter: ChapterProgress) {
+        viewModelScope.launch {
+            repository.setChapterRevised(chapter.id, !chapter.isRevised)
+        }
+    }
+
+    fun toggleChapterPyqsDone(chapter: ChapterProgress) {
+        viewModelScope.launch {
+            repository.setChapterPyqsDone(chapter.id, !chapter.isPyqsDone)
+        }
+    }
+
+    fun saveChapterNotes(chapterId: String, notes: String, customUrl: String) {
+        viewModelScope.launch {
+            repository.updateChapterNotesAndUrl(chapterId, notes, customUrl)
+        }
+    }
+
+    // --- Study Inventory (Resource CRUD) ---
+    fun addCustomResource(title: String, subject: String, url: String) {
+        viewModelScope.launch {
+            repository.addCustomResource(
+                ResourceEntity(
+                    subject = subject,
+                    title = title,
+                    url = url,
+                    isUserAdded = true
+                )
+            )
+        }
+    }
+
+    fun updateCustomResource(resource: ResourceEntity) {
+        viewModelScope.launch {
+            repository.updateCustomResource(resource)
+        }
+    }
+
+    fun deleteResource(resource: ResourceEntity) {
+        viewModelScope.launch {
+            repository.deleteCustomResource(resource)
+        }
+    }
+
+    // --- User Profile & Global Pixel Font ---
+    fun saveUserProfile(name: String, hobbies: String, dailyTargetMinutes: Int) {
+        viewModelScope.launch {
+            val current = userProfile.value
+            val updated = (current ?: com.example.data.model.UserProfileEntity()).copy(
+                name = name,
+                hobbies = hobbies,
+                dailyTargetMinutes = dailyTargetMinutes,
+                isOnboarded = true
+            )
+            repository.saveUserProfile(updated)
+        }
+    }
+
+    fun togglePixelFont() {
+        viewModelScope.launch {
+            val current = userProfile.value?.usePixelFont ?: true
+            repository.setFontPreference(!current)
+        }
+    }
+
+    fun setPixelFont(usePixel: Boolean) {
+        viewModelScope.launch {
+            repository.setFontPreference(usePixel)
         }
     }
 
@@ -669,6 +880,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         soundGenerator.stop()
+        stopCustomAudio()
         timerJob?.cancel()
     }
 }

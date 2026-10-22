@@ -61,13 +61,14 @@ private val PixelDarkColorScheme = darkColorScheme(
 fun FocusGroveTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    usePixelFont: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = if (darkTheme) PixelDarkColorScheme else PixelLightColorScheme
 
     MaterialTheme(
         colorScheme = colorScheme,
-        typography = Typography,
+        typography = getAppTypography(usePixelFont),
         shapes = PixelShapes,
         content = content
     )

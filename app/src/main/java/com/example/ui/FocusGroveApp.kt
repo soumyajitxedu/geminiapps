@@ -38,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -49,7 +50,10 @@ import com.example.ui.screens.SyllabusScreen
 import com.example.ui.screens.TimerScreen
 
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.LocalLibrary
 import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.LocalLibrary
+import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.ScheduleScreen
 
 enum class GroveScreen(
@@ -61,6 +65,7 @@ enum class GroveScreen(
     FOREST("Forest", Icons.Filled.Park, Icons.Outlined.Park, "nav_forest"),
     TIMER("Timer", Icons.Filled.Timer, Icons.Outlined.Timer, "nav_timer"),
     SCHEDULE("Schedule", Icons.Filled.DateRange, Icons.Outlined.DateRange, "nav_schedule"),
+    LIBRARY("Library", Icons.Filled.LocalLibrary, Icons.Outlined.LocalLibrary, "nav_library"),
     SYLLABUS("Syllabus", Icons.Filled.MenuBook, Icons.Outlined.MenuBook, "nav_syllabus"),
     QUIZZES("Quizzes", Icons.Filled.Quiz, Icons.Outlined.Quiz, "nav_quizzes"),
     ANALYSIS_SHOP("Shop", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag, "nav_shop")
@@ -73,22 +78,6 @@ fun FocusGroveApp(
 ) {
     var currentScreen by remember { mutableStateOf(GroveScreen.FOREST) }
     var isSettingsOpen by remember { mutableStateOf(false) }
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Strict Lifecycle Observer (ON_STOP) to detect backgrounding or closing
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                // If user leaves the app or switches apps, the tree withers and dies!
-                viewModel.onAppBackgrounded()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose {
-            lifecycleOwner.lifecycle.removeObserver(observer)
-        }
-    }
-
     if (isSettingsOpen) {
         SettingsScreen(
             viewModel = viewModel,
@@ -99,6 +88,9 @@ fun FocusGroveApp(
         // Back handling: pop back to Forest screen if on secondary tabs
         if (currentScreen != GroveScreen.FOREST) {
             BackHandler {
+                if (currentScreen == GroveScreen.TIMER) {
+                    viewModel.onExitTimerScreen()
+                }
                 currentScreen = GroveScreen.FOREST
             }
         }
@@ -117,15 +109,21 @@ fun FocusGroveApp(
                         val isSelected = currentScreen == screen
                         NavigationBarItem(
                             selected = isSelected,
-                            onClick = { currentScreen = screen },
+                            onClick = {
+                                if (currentScreen == GroveScreen.TIMER && screen != GroveScreen.TIMER) {
+                                    viewModel.onExitTimerScreen()
+                                }
+                                currentScreen = screen
+                            },
+                            alwaysShowLabel = false,
                             icon = {
                                 Icon(
                                     imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
                                     contentDescription = screen.title,
-                                    modifier = Modifier.size(24.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             },
-                            label = { Text(screen.title) },
+                            label = { Text(screen.title, fontSize = 10.sp, maxLines = 1) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
                                 selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -163,6 +161,9 @@ fun FocusGroveApp(
                             viewModel = viewModel,
                             onNavigateToTimer = { currentScreen = GroveScreen.TIMER },
                             onOpenSettings = { isSettingsOpen = true }
+                        )
+                        GroveScreen.LIBRARY -> LibraryScreen(
+                            viewModel = viewModel
                         )
                         GroveScreen.SYLLABUS -> SyllabusScreen(
                             viewModel = viewModel

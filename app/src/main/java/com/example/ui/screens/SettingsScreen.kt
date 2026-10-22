@@ -51,6 +51,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -97,8 +98,12 @@ fun SettingsScreen(
     val context = LocalContext.current
     val economy by viewModel.economy.collectAsStateWithLifecycle()
     val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
+    val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val customMinutes by viewModel.customMinutes.collectAsStateWithLifecycle()
     val demoModeEnabled = economy?.demoModeEnabled == true
+
+    val isPixelFont = userProfile?.usePixelFont ?: true
+    var showProfileEditDialog by remember { mutableStateOf(false) }
 
     // Google Calendar State
     val isGoogleConnected by viewModel.isGoogleCalendarConnected.collectAsStateWithLifecycle()
@@ -215,6 +220,90 @@ fun SettingsScreen(
                             modifier = Modifier.testTag("theme_toggle_switch")
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Global Font: Pixel Font vs System Default
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isPixelFont) "👾 Pixel Font (Active)" else "📱 System Default Font",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Globally toggle between cute 8-bit Pixelify Sans and clean Android System typography",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Switch(
+                            checked = isPixelFont,
+                            onCheckedChange = { viewModel.setPixelFont(it) },
+                            modifier = Modifier.testTag("font_toggle_switch")
+                        )
+                    }
+                }
+            }
+
+            // Section: User Profile & Personalized Plan
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "Study Profile & Target",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = { showProfileEditDialog = true },
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("Edit Profile", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Student Name: ${userProfile?.name?.ifBlank { "Scholar" } ?: "Scholar"}",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        text = "Hobbies: ${userProfile?.hobbies?.ifBlank { "Gaming & Music" } ?: "Gaming & Music"}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Daily Target: ${(userProfile?.dailyTargetMinutes ?: 120) / 60} hrs (${userProfile?.dailyTargetMinutes ?: 120} mins)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
 
@@ -685,6 +774,78 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetConfirmDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showProfileEditDialog) {
+        var editName by remember { mutableStateOf(userProfile?.name ?: "") }
+        var editHobbies by remember { mutableStateOf(userProfile?.hobbies ?: "") }
+        var editHours by remember { mutableStateOf(((userProfile?.dailyTargetMinutes ?: 120) / 60).toString()) }
+
+        AlertDialog(
+            onDismissRequest = { showProfileEditDialog = false },
+            title = {
+                Text(
+                    text = "Edit Study Profile",
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = com.example.ui.theme.PixelifySansFontFamily
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    OutlinedTextField(
+                        value = editName,
+                        onValueChange = { editName = it },
+                        label = { Text("Your Name / Nickname") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    OutlinedTextField(
+                        value = editHobbies,
+                        onValueChange = { editHobbies = it },
+                        label = { Text("Hobbies & Interests") },
+                        placeholder = { Text("e.g. Chess, Badminton, Gaming") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                    OutlinedTextField(
+                        value = editHours,
+                        onValueChange = { editHours = it },
+                        label = { Text("Daily Study Target (Hours)") },
+                        placeholder = { Text("e.g. 2, 3, 4") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val hours = editHours.toIntOrNull()?.coerceIn(1, 12) ?: 2
+                        viewModel.saveUserProfile(
+                            name = editName.trim(),
+                            hobbies = editHobbies.trim(),
+                            dailyTargetMinutes = hours * 60
+                        )
+                        showProfileEditDialog = false
+                        Toast.makeText(context, "Study profile updated!", Toast.LENGTH_SHORT).show()
+                    },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Save Changes")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showProfileEditDialog = false }) {
                     Text("Cancel")
                 }
             }

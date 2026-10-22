@@ -1,12 +1,17 @@
 package com.example.data
 
+import android.content.Context
 import com.example.data.local.EconomyDao
 import com.example.data.local.QuizDao
+import com.example.data.local.ResourceDao
+import com.example.data.local.ScheduleDao
 import com.example.data.local.SyllabusDao
 import com.example.data.local.TreeDao
 import com.example.data.model.AmbientSound
 import com.example.data.model.ChapterProgress
 import com.example.data.model.QuizResultEntity
+import com.example.data.model.ResourceEntity
+import com.example.data.model.ScheduleEventEntity
 import com.example.data.model.TreeRecord
 import com.example.data.model.TreeSpecies
 import com.example.data.model.TreeStatus
@@ -15,24 +20,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
-
-import com.example.data.local.ScheduleDao
-import com.example.data.model.ScheduleEventEntity
+import org.json.JSONArray
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+
+import com.example.data.local.UserProfileDao
+import com.example.data.model.UserProfileEntity
 
 class FocusGroveRepository(
     private val treeDao: TreeDao,
     private val syllabusDao: SyllabusDao,
     private val economyDao: EconomyDao,
     private val quizDao: QuizDao,
-    private val scheduleDao: ScheduleDao
+    private val scheduleDao: ScheduleDao,
+    private val resourceDao: ResourceDao,
+    private val userProfileDao: UserProfileDao
 ) {
     val allTrees: Flow<List<TreeRecord>> = treeDao.getAllTrees()
     val allChapters: Flow<List<ChapterProgress>> = syllabusDao.getAllChapters()
     val economy: Flow<UserEconomy?> = economyDao.getEconomy()
     val allScheduleEvents: Flow<List<ScheduleEventEntity>> = scheduleDao.getAllEvents()
+    val allResources: Flow<List<ResourceEntity>> = resourceDao.getAllResources()
+    val userProfile: Flow<UserProfileEntity?> = userProfileDao.getUserProfile()
+
+    fun getResourcesBySubject(subject: String): Flow<List<ResourceEntity>> =
+        resourceDao.getResourcesBySubject(subject)
 
     fun getScheduleEventsForDate(date: String): Flow<List<ScheduleEventEntity>> =
         scheduleDao.getEventsForDate(date)
@@ -49,7 +62,7 @@ class FocusGroveRepository(
     val totalQuizzesTaken: Flow<Int> = quizDao.getTotalQuizzesTaken()
     val averageQuizScorePercent: Flow<Float?> = quizDao.getAverageQuizScorePercent()
 
-    suspend fun checkAndInitializeData() = withContext(Dispatchers.IO) {
+    suspend fun checkAndInitializeData(context: Context? = null) = withContext(Dispatchers.IO) {
         val econ = economyDao.getEconomy().firstOrNull()
         if (econ == null) {
             economyDao.saveEconomy(
@@ -149,6 +162,34 @@ class FocusGroveRepository(
                 )
             )
             scheduleDao.insertEvents(sampleEvents)
+        }
+
+        // Initialize library resources from JSON
+        context?.let { parseAndInsertLibraryResources(it) }
+    }
+
+    suspend fun parseAndInsertLibraryResources(context: Context) = withContext(Dispatchers.IO) {
+        if (resourceDao.getResourceCount() == 0) {
+            val jsonString = try {
+                context.assets.open("library_resources.json").bufferedReader().use { it.readText() }
+            } catch (e: Exception) {
+                ""
+            }
+            if (jsonString.isNotBlank()) {
+                val jsonArray = JSONArray(jsonString)
+                val list = ArrayList<ResourceEntity>(jsonArray.length())
+                for (i in 0 until jsonArray.length()) {
+                    val obj = jsonArray.getJSONObject(i)
+                    list.add(
+                        ResourceEntity(
+                            subject = obj.optString("subject", "General"),
+                            title = obj.optString("title", "Untitled Document"),
+                            url = obj.optString("url", "")
+                        )
+                    )
+                }
+                resourceDao.insertResources(list)
+            }
         }
     }
 
@@ -290,11 +331,60 @@ class FocusGroveRepository(
         )
         val initialList = InitialSyllabusData.createInitialChaptersList()
         initialList.forEach { chapter ->
-            syllabusDao.setChapterCompletion(chapter.id, false)
+            syllabusDao.setLearned(chapter.id, false)
+            syllabusDao.setRevised(chapter.id, false)
+            syllabusDao.setPyqsDone(chapter.id, false)
+            syllabusDao.updateNotesAndUrl(chapter.id, "", "")
         }
     }
 
     suspend fun clearAllTrees() = withContext(Dispatchers.IO) {
         treeDao.clearAll()
+    }
+
+    // --- Syllabus Checkpoints & Notes ---
+
+    suspend fun setChapterLearned(chapterId: String, learned: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setLearned(chapterId, learned)
+    }
+
+    suspend fun setChapterRevised(chapterId: String, revised: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setRevised(chapterId, revised)
+    }
+
+    suspend fun setChapterPyqsDone(chapterId: String, pyqsDone: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setPyqsDone(chapterId, pyqsDone)
+    }
+
+    suspend fun updateChapterNotesAndUrl(chapterId: String, notes: String, customUrl: String) = withContext(Dispatchers.IO) {
+        syllabusDao.updateNotesAndUrl(chapterId, notes, customUrl)
+    }
+
+    // --- Study Inventory / Resources ---
+
+    suspend fun addCustomResource(resource: ResourceEntity): Long = withContext(Dispatchers.IO) {
+        resourceDao.insertResource(resource)
+    }
+
+    suspend fun updateCustomResource(resource: ResourceEntity) = withContext(Dispatchers.IO) {
+        resourceDao.updateResource(resource)
+    }
+
+    suspend fun deleteCustomResource(resource: ResourceEntity) = withContext(Dispatchers.IO) {
+        resourceDao.deleteResource(resource)
+    }
+
+    suspend fun deleteResourceById(id: Long) = withContext(Dispatchers.IO) {
+        resourceDao.deleteResourceById(id)
+    }
+
+    // --- User Profile & Font Preference ---
+
+    suspend fun saveUserProfile(profile: UserProfileEntity) = withContext(Dispatchers.IO) {
+        userProfileDao.saveUserProfile(profile)
+    }
+
+    suspend fun setFontPreference(usePixel: Boolean) = withContext(Dispatchers.IO) {
+        userProfileDao.setFontPreference(usePixel)
     }
 }

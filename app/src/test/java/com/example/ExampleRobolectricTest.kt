@@ -41,7 +41,9 @@ class ExampleRobolectricTest {
             syllabusDao = database.syllabusDao(),
             economyDao = database.economyDao(),
             quizDao = database.quizDao(),
-            scheduleDao = database.scheduleDao()
+            scheduleDao = database.scheduleDao(),
+            resourceDao = database.resourceDao(),
+            userProfileDao = database.userProfileDao()
         )
     }
 
@@ -236,5 +238,93 @@ class ExampleRobolectricTest {
         repository.toggleEventCompletion(id, true)
         val updatedEvents = repository.getScheduleEventsForDate("2026-10-20").first()
         assertTrue(updatedEvents[0].isCompleted)
+    }
+
+    @Test
+    fun `chapter 3-step checkpoints and notes update properly`() = runTest {
+        repository.checkAndInitializeData()
+        val chapters = repository.allChapters.first()
+        assertTrue(chapters.isNotEmpty())
+        val firstChapter = chapters[0]
+
+        // Initially all checkpoints should be false
+        assertFalse(firstChapter.isLearned)
+        assertFalse(firstChapter.isRevised)
+        assertFalse(firstChapter.isPyqsDone)
+        assertEquals(0f, firstChapter.completionFraction)
+
+        // Check 1: Learned
+        repository.setChapterLearned(firstChapter.id, true)
+        var updated = repository.allChapters.first().first { it.id == firstChapter.id }
+        assertTrue(updated.isLearned)
+        assertEquals(1f / 3f, updated.completionFraction, 0.01f)
+
+        // Check 2: Revised
+        repository.setChapterRevised(firstChapter.id, true)
+        updated = repository.allChapters.first().first { it.id == firstChapter.id }
+        assertTrue(updated.isRevised)
+        assertEquals(2f / 3f, updated.completionFraction, 0.01f)
+
+        // Check 3: PYQs Done
+        repository.setChapterPyqsDone(firstChapter.id, true)
+        updated = repository.allChapters.first().first { it.id == firstChapter.id }
+        assertTrue(updated.isPyqsDone)
+        assertEquals(1f, updated.completionFraction, 0.01f)
+
+        // Notes and Custom URL
+        repository.updateChapterNotesAndUrl(firstChapter.id, "**Key formulas**:\nF = ma", "https://drive.google.com/test-notes")
+        updated = repository.allChapters.first().first { it.id == firstChapter.id }
+        assertEquals("**Key formulas**:\nF = ma", updated.notes)
+        assertEquals("https://drive.google.com/test-notes", updated.customUrl)
+    }
+
+    @Test
+    fun `user profile saving and font preference toggling works`() = runTest {
+        val initialProfile = repository.userProfile.first()
+        // If not initialized, can be null or default
+        val profile = com.example.data.model.UserProfileEntity(
+            id = 1,
+            name = "Aarav",
+            hobbies = "Chess & Guitar",
+            dailyTargetMinutes = 180,
+            isOnboarded = true,
+            usePixelFont = true
+        )
+        repository.saveUserProfile(profile)
+
+        val saved = repository.userProfile.first()
+        assertEquals("Aarav", saved?.name)
+        assertEquals("Chess & Guitar", saved?.hobbies)
+        assertEquals(180, saved?.dailyTargetMinutes)
+        assertTrue(saved?.isOnboarded == true)
+        assertTrue(saved?.usePixelFont == true)
+
+        // Toggle font to System Default
+        repository.setFontPreference(false)
+        val afterFontToggle = repository.userProfile.first()
+        assertFalse(afterFontToggle?.usePixelFont == true)
+    }
+
+    @Test
+    fun `study inventory custom resource add and delete works`() = runTest {
+        val customRes = com.example.data.model.ResourceEntity(
+            subject = "Physics",
+            title = "Personal Handwritten Mechanics Notes",
+            url = "https://drive.google.com/personal-notes",
+            isUserAdded = true
+        )
+        val id = repository.addCustomResource(customRes)
+        assertTrue(id > 0)
+
+        val allRes = repository.allResources.first()
+        val found = allRes.firstOrNull { it.id == id }
+        assertTrue(found != null)
+        assertEquals("Personal Handwritten Mechanics Notes", found?.title)
+        assertTrue(found?.isUserAdded == true)
+
+        // Delete custom resource
+        repository.deleteResourceById(id)
+        val afterDelete = repository.allResources.first()
+        assertFalse(afterDelete.any { it.id == id })
     }
 }

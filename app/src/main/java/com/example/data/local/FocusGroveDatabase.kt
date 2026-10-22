@@ -14,7 +14,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
+import com.example.data.model.ResourceEntity
 import com.example.data.model.ScheduleEventEntity
+import com.example.data.model.UserProfileEntity
 
 @Database(
     entities = [
@@ -22,9 +24,11 @@ import com.example.data.model.ScheduleEventEntity
         ChapterProgress::class,
         UserEconomy::class,
         QuizResultEntity::class,
-        ScheduleEventEntity::class
+        ScheduleEventEntity::class,
+        ResourceEntity::class,
+        UserProfileEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class FocusGroveDatabase : RoomDatabase() {
@@ -33,6 +37,8 @@ abstract class FocusGroveDatabase : RoomDatabase() {
     abstract fun economyDao(): EconomyDao
     abstract fun quizDao(): QuizDao
     abstract fun scheduleDao(): ScheduleDao
+    abstract fun resourceDao(): ResourceDao
+    abstract fun userProfileDao(): UserProfileDao
 
     companion object {
         @Volatile

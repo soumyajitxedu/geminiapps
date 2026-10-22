@@ -47,9 +47,19 @@ data class ChapterProgress(
     val id: String, // e.g. "Physics_Force"
     val subject: String,
     val chapterName: String,
-    val isCompleted: Boolean = false,
+    val isLearned: Boolean = false,
+    val isRevised: Boolean = false,
+    val isPyqsDone: Boolean = false,
+    val notes: String = "",
+    val customUrl: String = "",
     val orderIndex: Int = 0
-)
+) {
+    val completionFraction: Float
+        get() = ((if (isLearned) 1 else 0) + (if (isRevised) 1 else 0) + (if (isPyqsDone) 1 else 0)) / 3f
+
+    val isCompleted: Boolean
+        get() = isLearned && isRevised && isPyqsDone
+}
 
 @Entity(tableName = "economy")
 data class UserEconomy(
@@ -118,4 +128,27 @@ data class ScheduleEventEntity(
     val colorTheme: String = "BLUE", // BLUE, PASTEL
     val timestamp: Long = System.currentTimeMillis()
 )
+
+@Entity(tableName = "resources")
+data class ResourceEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val subject: String,
+    val title: String,
+    val url: String,
+    val isUserAdded: Boolean = false
+)
+
+@Entity(tableName = "user_profile")
+data class UserProfileEntity(
+    @PrimaryKey
+    val id: Int = 1,
+    val name: String = "",
+    val hobbies: String = "",
+    val dailyTargetMinutes: Int = 120, // 2 hours
+    val isOnboarded: Boolean = false,
+    val usePixelFont: Boolean = true
+)
+
+
 

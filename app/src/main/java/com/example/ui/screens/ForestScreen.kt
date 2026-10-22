@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -38,6 +39,7 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -85,6 +87,10 @@ fun ForestScreen(
     val economy by viewModel.economy.collectAsStateWithLifecycle()
     val completedChapters by viewModel.completedChaptersCount.collectAsStateWithLifecycle()
     val totalChapters by viewModel.totalChaptersCount.collectAsStateWithLifecycle()
+    val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+
+    val isOnboarded = userProfile?.isOnboarded == true
+    var showEditProfileDialog by remember { mutableStateOf(false) }
 
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, ALIVE, DEAD
     var inspectedTree by remember { mutableStateOf<TreeRecord?>(null) }
@@ -268,6 +274,91 @@ fun ForestScreen(
                                         text = "119 days left",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Personalized Suggested Study Plan Card
+                    val userName = userProfile?.name?.ifBlank { "Scholar" } ?: "Scholar"
+                    val userHobbies = userProfile?.hobbies?.ifBlank { "Recreation & Hobbies" } ?: "Recreation & Hobbies"
+                    val targetHours = (userProfile?.dailyTargetMinutes ?: 120) / 60
+
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Welcome, $userName! 🌟",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = com.example.ui.theme.PixelifySansFontFamily,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    )
+                                    Text(
+                                        text = "Personalized ICSE Plan • $targetHours hrs/day target",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.clickable { onNavigateToTimer() }
+                                ) {
+                                    Text(
+                                        text = "Start Focus ⏱️",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    Text(
+                                        text = "💡 Today's Suggested Routine:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Text(
+                                        text = "• Block 1 (45m): Science & Math High-Weightage Chapters",
+                                        fontSize = 11.sp
+                                    )
+                                    Text(
+                                        text = "• Recharge Break (15m): Enjoy $userHobbies!",
+                                        fontSize = 11.sp,
+                                        color = MaterialTheme.colorScheme.secondary,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        text = "• Block 2 (45m): Chapter Revision & 3-Step PYQs",
+                                        fontSize = 11.sp
                                     )
                                 }
                             }
@@ -548,6 +639,123 @@ fun ForestScreen(
                 confirmButton = {
                     TextButton(onClick = { inspectedTree = null }) {
                         Text("Close")
+                    }
+                }
+            )
+        }
+
+        // First-Time User Onboarding Flow Modal
+        if (!isOnboarded) {
+            var inputName by remember { mutableStateOf("") }
+            var inputHobbies by remember { mutableStateOf("") }
+            var selectedHours by remember { mutableStateOf(2) }
+
+            AlertDialog(
+                onDismissRequest = { /* Force complete or skip */ },
+                icon = {
+                    PixelArtEmblem(
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                    )
+                },
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Welcome to Focus Grove!",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = com.example.ui.theme.PixelifySansFontFamily,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        )
+                        Text(
+                            text = "Let's personalize your ICSE Study Sanctuary",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                text = {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = inputName,
+                            onValueChange = { inputName = it },
+                            label = { Text("What should we call you?") },
+                            placeholder = { Text("e.g. Aarav, Meera") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("onboarding_name_input"),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        OutlinedTextField(
+                            value = inputHobbies,
+                            onValueChange = { inputHobbies = it },
+                            label = { Text("Your Hobbies / Breaks") },
+                            placeholder = { Text("e.g. Chess, Badminton, Gaming") },
+                            singleLine = true,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("onboarding_hobbies_input"),
+                            shape = RoundedCornerShape(10.dp)
+                        )
+
+                        Text(
+                            text = "Daily Study Target: $selectedHours Hours",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(1, 2, 3, 4).forEach { hours ->
+                                val isSelected = selectedHours == hours
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clickable { selectedHours = hours }
+                                ) {
+                                    Box(
+                                        modifier = Modifier.padding(vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${hours}h",
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            val name = if (inputName.isBlank()) "Scholar" else inputName.trim()
+                            val hobbies = if (inputHobbies.isBlank()) "Gaming & Music" else inputHobbies.trim()
+                            viewModel.saveUserProfile(
+                                name = name,
+                                hobbies = hobbies,
+                                dailyTargetMinutes = selectedHours * 60
+                            )
+                        },
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("onboarding_start_button")
+                    ) {
+                        Text("🌱 Begin My Study Grove")
                     }
                 }
             )

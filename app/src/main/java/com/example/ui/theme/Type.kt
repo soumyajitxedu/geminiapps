@@ -16,7 +16,7 @@ val PixelifySansFontFamily = FontFamily(
     Font(R.font.pixelify_sans, FontWeight.SemiBold)
 )
 
-val Typography = Typography(
+val PixelTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = PixelifySansFontFamily,
         fontWeight = FontWeight.Bold,
@@ -69,33 +69,33 @@ val Typography = Typography(
     titleMedium = TextStyle(
         fontFamily = PixelifySansFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 17.sp,
-        lineHeight = 23.sp,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
         letterSpacing = 0.15.sp
     ),
     titleSmall = TextStyle(
         fontFamily = PixelifySansFontFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 15.sp,
+        fontSize = 14.sp,
         lineHeight = 20.sp,
         letterSpacing = 0.1.sp
     ),
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = PixelifySansFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 15.sp,
         lineHeight = 22.sp,
-        letterSpacing = 0.25.sp
+        letterSpacing = 0.4.sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = PixelifySansFontFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
-        letterSpacing = 0.25.sp
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+        letterSpacing = 0.3.sp
     ),
     bodySmall = TextStyle(
-        fontFamily = FontFamily.Default,
+        fontFamily = PixelifySansFontFamily,
         fontWeight = FontWeight.Normal,
         fontSize = 12.sp,
         lineHeight = 16.sp,
@@ -123,3 +123,10 @@ val Typography = Typography(
         letterSpacing = 0.3.sp
     )
 )
+
+val SystemTypography = Typography()
+
+val Typography = PixelTypography
+
+fun getAppTypography(usePixelFont: Boolean): Typography =
+    if (usePixelFont) PixelTypography else SystemTypography

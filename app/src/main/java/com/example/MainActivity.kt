@@ -22,7 +22,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val isDarkTheme by mainViewModel.isDarkTheme.collectAsStateWithLifecycle()
-            FocusGroveTheme(darkTheme = isDarkTheme) {
+            val userProfile by mainViewModel.userProfile.collectAsStateWithLifecycle()
+            val usePixelFont = userProfile?.usePixelFont ?: true
+
+            FocusGroveTheme(darkTheme = isDarkTheme, usePixelFont = usePixelFont) {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     FocusGroveApp(viewModel = mainViewModel)
                 }
