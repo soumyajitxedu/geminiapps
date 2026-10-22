@@ -34,6 +34,8 @@ import kotlinx.coroutines.launch
 import com.example.data.calendar.GoogleCalendarManager
 import com.example.data.model.ResourceEntity
 import com.example.data.model.ScheduleEventEntity
+import com.example.audio.SoundEffectManager
+import com.example.ui.notification.TimerNotificationManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
@@ -71,6 +73,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         resourceDao = database.resourceDao(),
         userProfileDao = database.userProfileDao()
     )
+
+    val soundEffectManager = SoundEffectManager(application)
+    val notificationManager = TimerNotificationManager(application)
 
     val userProfile: StateFlow<com.example.data.model.UserProfileEntity?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -194,11 +199,37 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val activeGratitudeIndex: StateFlow<Int> = _activeGratitudeIndex.asStateFlow()
 
     fun cycleQuote() {
-        _activeQuoteIndex.value = (_activeQuoteIndex.value + 1) % motivationalQuotes.size
+        randomizeQuote()
+    }
+
+    fun randomizeQuote() {
+        if (motivationalQuotes.isEmpty()) return
+        val current = _activeQuoteIndex.value
+        val next = if (motivationalQuotes.size > 1) {
+            var r: Int
+            do {
+                r = kotlin.random.Random.nextInt(motivationalQuotes.size)
+            } while (r == current)
+            r
+        } else 0
+        _activeQuoteIndex.value = next
     }
 
     fun cycleGratitude() {
-        _activeGratitudeIndex.value = (_activeGratitudeIndex.value + 1) % gratitudePrompts.size
+        randomizeGratitude()
+    }
+
+    fun randomizeGratitude() {
+        if (gratitudePrompts.isEmpty()) return
+        val current = _activeGratitudeIndex.value
+        val next = if (gratitudePrompts.size > 1) {
+            var r: Int
+            do {
+                r = kotlin.random.Random.nextInt(gratitudePrompts.size)
+            } while (r == current)
+            r
+        } else 0
+        _activeGratitudeIndex.value = next
     }
 
     fun setCustomAudio(uri: android.net.Uri?, name: String?) {
@@ -370,15 +401,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         vibrate(100)
         timerJob?.cancel()
 
+        val speciesName = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK").displayName
+
         if (_timerMode.value == FocusTimerMode.COUNTDOWN) {
             val duration = if (demo) 10 else (_customMinutes.value * 60)
             _totalDurationSeconds.value = duration
             _remainingSeconds.value = duration
 
+            notificationManager.showOrUpdateTimerNotification(
+                timeFormatted = formatDuration(_remainingSeconds.value),
+                speciesName = speciesName,
+                subjectTag = _selectedSubject.value,
+                isCountdown = true
+            )
+
             timerJob = viewModelScope.launch {
                 while (_remainingSeconds.value > 0) {
                     delay(1000)
                     _remainingSeconds.value -= 1
+                    notificationManager.showOrUpdateTimerNotification(
+                        timeFormatted = formatDuration(_remainingSeconds.value),
+                        speciesName = speciesName,
+                        subjectTag = _selectedSubject.value,
+                        isCountdown = true
+                    )
                 }
                 // Success! Countdown completed!
                 completeCountdownSession()
@@ -386,18 +432,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             // Stopwatch Mode (Count-up)
             _elapsedStopwatchSeconds.value = 0
+            notificationManager.showOrUpdateTimerNotification(
+                timeFormatted = formatDuration(_elapsedStopwatchSeconds.value),
+                speciesName = speciesName,
+                subjectTag = _selectedSubject.value,
+                isCountdown = false
+            )
             timerJob = viewModelScope.launch {
                 while (true) {
                     delay(1000)
                     _elapsedStopwatchSeconds.value += 1
+                    notificationManager.showOrUpdateTimerNotification(
+                        timeFormatted = formatDuration(_elapsedStopwatchSeconds.value),
+                        speciesName = speciesName,
+                        subjectTag = _selectedSubject.value,
+                        isCountdown = false
+                    )
                 }
             }
         }
     }
 
+    private fun formatDuration(seconds: Int): String {
+        val m = seconds / 60
+        val s = seconds % 60
+        return String.format(Locale.getDefault(), "%02d:%02d", m, s)
+    }
+
     private fun completeCountdownSession() {
         soundGenerator.stop()
         stopCustomAudio()
+        notificationManager.cancelNotification()
+        soundEffectManager.playTreeGrownChime()
         _timerStatus.value = TimerStatus.COMPLETED
         val species = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK")
         val duration = _totalDurationSeconds.value
@@ -421,7 +487,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 chapterTag = chapter
             )
 
-            // Requirement 2: When Focus Timer session is completed, automatically create Google Calendar event
+            // Auto-sync completed session to Google Calendar
             if (calendarManager.isConnected.value && calendarManager.autoSyncEnabled.value) {
                 calendarManager.createFocusSessionEvent(
                     species = species,
@@ -439,6 +505,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         timerJob?.cancel()
         soundGenerator.stop()
         stopCustomAudio()
+        notificationManager.cancelNotification()
+        soundEffectManager.playTreeGrownChime()
 
         val elapsed = _elapsedStopwatchSeconds.value
         val species = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK")
@@ -464,7 +532,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 chapterTag = chapter
             )
 
-            // Requirement 2: Auto-sync stopwatch session to Google Calendar
             if (calendarManager.isConnected.value && calendarManager.autoSyncEnabled.value) {
                 calendarManager.createFocusSessionEvent(
                     species = species,
@@ -486,20 +553,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         failSession("Gave up during focus session")
     }
 
-    // Called when the user leaves or navigates away from the Timer screen
+    // Tab switching inside the app preserves timer running in background
     fun onExitTimerScreen() {
+        // No-op: Timer keeps running while user navigates inside app
+    }
+
+    // Screen locked or app minimized/closed: ONLY then does the tree die
+    fun onAppBackgrounded() {
         if (_timerStatus.value == TimerStatus.RUNNING) {
-            giveUp()
+            timerJob?.cancel()
+            soundGenerator.stop()
+            stopCustomAudio()
+            failSession("App left or screen locked during focus session")
         }
     }
 
-    // Critical constraint: The timer runs in the foreground; tree dies ONLY on Give Up or exiting timer screen.
-    // Backgrounding does NOT kill the tree unless user explicitly gave up or navigated away.
-    fun onAppBackgrounded() {
-        // No-op to strictly fulfill foreground constraint where tree dies only on Give Up or leaving timer screen.
-    }
-
     private fun failSession(reason: String) {
+        notificationManager.cancelNotification()
+        soundEffectManager.playTreeDiedSound()
         _timerStatus.value = TimerStatus.FAILED
         val species = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK")
         val elapsed = if (_timerMode.value == FocusTimerMode.COUNTDOWN) {
@@ -535,6 +606,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         timerJob?.cancel()
         soundGenerator.stop()
         stopCustomAudio()
+        notificationManager.cancelNotification()
         _timerStatus.value = TimerStatus.IDLE
         val demo = economy.value?.demoModeEnabled == true
         val duration = if (demo) 10 else (_customMinutes.value * 60)
@@ -542,6 +614,66 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _remainingSeconds.value = duration
         _elapsedStopwatchSeconds.value = 0
         _lastSessionResult.value = null
+    }
+
+    // --- Hidden Debug Menu State & Actions ---
+    private val _isDebugUnlocked = MutableStateFlow(false)
+    val isDebugUnlocked: StateFlow<Boolean> = _isDebugUnlocked.asStateFlow()
+
+    private val _isPlayfulMode = MutableStateFlow(false)
+    val isPlayfulMode: StateFlow<Boolean> = _isPlayfulMode.asStateFlow()
+
+    private val _debugLogs = MutableStateFlow<List<String>>(listOf(
+        "[System] Focus Grove initialized",
+        "[Database] Room DB v7 connected",
+        "[Audio] SoundEffectManager & TimerNotificationManager active"
+    ))
+    val debugLogs: StateFlow<List<String>> = _debugLogs.asStateFlow()
+
+    fun unlockDebugMode() {
+        _isDebugUnlocked.value = true
+        addDebugLog("[Debug] Hidden Debug Mode unlocked via Serial tap x10")
+        soundEffectManager.playUiSelect()
+    }
+
+    fun togglePlayfulMode() {
+        _isPlayfulMode.value = !_isPlayfulMode.value
+        addDebugLog("[Debug] Playful mode toggled: ${_isPlayfulMode.value}")
+        soundEffectManager.playUiSelect()
+    }
+
+    fun addDebugCoins(amount: Int = 1000) {
+        viewModelScope.launch {
+            repository.addCoins(amount)
+            addDebugLog("[Debug] Added $amount debug coins")
+        }
+        soundEffectManager.playUiSelect()
+    }
+
+    fun clearCache() {
+        try {
+            val app = getApplication<Application>()
+            app.cacheDir.deleteRecursively()
+            addDebugLog("[Debug] Application cache cleared successfully")
+        } catch (e: Exception) {
+            addDebugLog("[Debug] Clear cache error: ${e.message}")
+        }
+        soundEffectManager.playUiClick()
+    }
+
+    fun setCustomTimerDirect(minutes: Int) {
+        val clamped = minutes.coerceIn(1, 300)
+        _customMinutes.value = clamped
+        val duration = clamped * 60
+        _totalDurationSeconds.value = duration
+        _remainingSeconds.value = duration
+        addDebugLog("[Debug] Custom timer set to $clamped minutes ($duration s)")
+        soundEffectManager.playUiClick()
+    }
+
+    fun addDebugLog(msg: String) {
+        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        _debugLogs.value = listOf("[$time] $msg") + _debugLogs.value.take(40)
     }
 
     // Debug Menu Actions
@@ -560,7 +692,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 chapterTag = _selectedChapter.value
             )
         }
-        vibrate(300)
+        soundEffectManager.playTreeDiedSound()
     }
 
     fun resetAllData() {
@@ -570,39 +702,72 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _selectedSubject.value = "Physics"
             _selectedChapter.value = "Force"
             _customMinutes.value = 30
+            addDebugLog("[Database] Reset all tables & UserProfile successfully")
         }
-        vibrate(400)
+        soundEffectManager.playUiSelect()
     }
 
     fun toggleChapterCompletion(chapterId: String, currentStatus: Boolean) {
         viewModelScope.launch {
             repository.setChapterCompletion(chapterId, !currentStatus)
         }
+        soundEffectManager.playUiClick()
     }
 
-    // --- 3-Step Checkpoints & Notes ---
-    fun toggleChapterLearned(chapter: ChapterProgress) {
+    // --- 5-Step Checkpoints & Notes ---
+    fun toggleChapterFundamental(chapter: ChapterProgress) {
+        soundEffectManager.playUiClick()
         viewModelScope.launch {
-            repository.setChapterLearned(chapter.id, !chapter.isLearned)
+            repository.setChapterFundamental(chapter.id, !chapter.stepFundamental)
         }
+    }
+
+    fun toggleChapterEx1(chapter: ChapterProgress) {
+        soundEffectManager.playUiClick()
+        viewModelScope.launch {
+            repository.setChapterEx1(chapter.id, !chapter.stepEx1)
+        }
+    }
+
+    fun toggleChapterEx2(chapter: ChapterProgress) {
+        soundEffectManager.playUiClick()
+        viewModelScope.launch {
+            repository.setChapterEx2(chapter.id, !chapter.stepEx2)
+        }
+    }
+
+    fun toggleChapterEx3(chapter: ChapterProgress) {
+        soundEffectManager.playUiClick()
+        viewModelScope.launch {
+            repository.setChapterEx3(chapter.id, !chapter.stepEx3)
+        }
+    }
+
+    fun toggleChapterPyqs(chapter: ChapterProgress) {
+        soundEffectManager.playUiClick()
+        viewModelScope.launch {
+            repository.setChapterPyqs(chapter.id, !chapter.stepPyqs)
+        }
+    }
+
+    // Legacy backwards-compatibility
+    fun toggleChapterLearned(chapter: ChapterProgress) {
+        toggleChapterFundamental(chapter)
     }
 
     fun toggleChapterRevised(chapter: ChapterProgress) {
-        viewModelScope.launch {
-            repository.setChapterRevised(chapter.id, !chapter.isRevised)
-        }
+        toggleChapterEx1(chapter)
     }
 
     fun toggleChapterPyqsDone(chapter: ChapterProgress) {
-        viewModelScope.launch {
-            repository.setChapterPyqsDone(chapter.id, !chapter.isPyqsDone)
-        }
+        toggleChapterPyqs(chapter)
     }
 
     fun saveChapterNotes(chapterId: String, notes: String, customUrl: String) {
         viewModelScope.launch {
             repository.updateChapterNotesAndUrl(chapterId, notes, customUrl)
         }
+        soundEffectManager.playUiClick()
     }
 
     // --- Study Inventory (Resource CRUD) ---

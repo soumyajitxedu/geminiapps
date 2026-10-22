@@ -78,6 +78,21 @@ fun FocusGroveApp(
 ) {
     var currentScreen by remember { mutableStateOf(GroveScreen.FOREST) }
     var isSettingsOpen by remember { mutableStateOf(false) }
+
+    // Lifecycle observer: kills the tree ONLY if user locks screen or leaves the app (ON_STOP)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                viewModel.onAppBackgrounded()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
     if (isSettingsOpen) {
         SettingsScreen(
             viewModel = viewModel,
@@ -85,12 +100,9 @@ fun FocusGroveApp(
             modifier = modifier
         )
     } else {
-        // Back handling: pop back to Forest screen if on secondary tabs
+        // Back handling: pop back to Forest screen if on secondary tabs without killing timer
         if (currentScreen != GroveScreen.FOREST) {
             BackHandler {
-                if (currentScreen == GroveScreen.TIMER) {
-                    viewModel.onExitTimerScreen()
-                }
                 currentScreen = GroveScreen.FOREST
             }
         }
@@ -110,9 +122,7 @@ fun FocusGroveApp(
                         NavigationBarItem(
                             selected = isSelected,
                             onClick = {
-                                if (currentScreen == GroveScreen.TIMER && screen != GroveScreen.TIMER) {
-                                    viewModel.onExitTimerScreen()
-                                }
+                                viewModel.soundEffectManager.playUiClick()
                                 currentScreen = screen
                             },
                             alwaysShowLabel = false,

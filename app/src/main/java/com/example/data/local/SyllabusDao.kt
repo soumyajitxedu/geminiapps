@@ -19,6 +19,21 @@ interface SyllabusDao {
     @Update
     suspend fun updateChapter(chapter: ChapterProgress)
 
+    @Query("UPDATE chapters SET stepFundamental = :done WHERE id = :chapterId")
+    suspend fun setFundamental(chapterId: String, done: Boolean)
+
+    @Query("UPDATE chapters SET stepEx1 = :done WHERE id = :chapterId")
+    suspend fun setEx1(chapterId: String, done: Boolean)
+
+    @Query("UPDATE chapters SET stepEx2 = :done WHERE id = :chapterId")
+    suspend fun setEx2(chapterId: String, done: Boolean)
+
+    @Query("UPDATE chapters SET stepEx3 = :done WHERE id = :chapterId")
+    suspend fun setEx3(chapterId: String, done: Boolean)
+
+    @Query("UPDATE chapters SET stepPyqs = :done WHERE id = :chapterId")
+    suspend fun setPyqs(chapterId: String, done: Boolean)
+
     @Query("UPDATE chapters SET isLearned = :learned WHERE id = :chapterId")
     suspend fun setLearned(chapterId: String, learned: Boolean)
 
@@ -28,13 +43,13 @@ interface SyllabusDao {
     @Query("UPDATE chapters SET isPyqsDone = :pyqsDone WHERE id = :chapterId")
     suspend fun setPyqsDone(chapterId: String, pyqsDone: Boolean)
 
-    @Query("UPDATE chapters SET isLearned = :completed, isRevised = :completed, isPyqsDone = :completed WHERE id = :chapterId")
+    @Query("UPDATE chapters SET stepFundamental = :completed, stepEx1 = :completed, stepEx2 = :completed, stepEx3 = :completed, stepPyqs = :completed, isLearned = :completed, isRevised = :completed, isPyqsDone = :completed WHERE id = :chapterId")
     suspend fun setChapterCompletion(chapterId: String, completed: Boolean)
 
     @Query("UPDATE chapters SET notes = :notes, customUrl = :customUrl WHERE id = :chapterId")
     suspend fun updateNotesAndUrl(chapterId: String, notes: String, customUrl: String)
 
-    @Query("SELECT COUNT(*) FROM chapters WHERE isLearned = 1 AND isRevised = 1 AND isPyqsDone = 1")
+    @Query("SELECT COUNT(*) FROM chapters WHERE stepFundamental = 1 AND stepEx1 = 1 AND stepEx2 = 1 AND stepEx3 = 1 AND stepPyqs = 1")
     fun getCompletedChaptersCount(): Flow<Int>
 
     @Query("SELECT COUNT(*) FROM chapters")

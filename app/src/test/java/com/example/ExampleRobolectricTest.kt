@@ -241,41 +241,86 @@ class ExampleRobolectricTest {
     }
 
     @Test
-    fun `chapter 3-step checkpoints and notes update properly`() = runTest {
+    fun `chapter 5-step checkpoints and notes update properly`() = runTest {
         repository.checkAndInitializeData()
         val chapters = repository.allChapters.first()
         assertTrue(chapters.isNotEmpty())
         val firstChapter = chapters[0]
 
         // Initially all checkpoints should be false
-        assertFalse(firstChapter.isLearned)
-        assertFalse(firstChapter.isRevised)
-        assertFalse(firstChapter.isPyqsDone)
+        assertFalse(firstChapter.stepFundamental)
+        assertFalse(firstChapter.stepEx1)
+        assertFalse(firstChapter.stepEx2)
+        assertFalse(firstChapter.stepEx3)
+        assertFalse(firstChapter.stepPyqs)
         assertEquals(0f, firstChapter.completionFraction)
 
-        // Check 1: Learned
-        repository.setChapterLearned(firstChapter.id, true)
+        // Check 1: Fundamental (20%)
+        repository.setChapterFundamental(firstChapter.id, true)
         var updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.isLearned)
-        assertEquals(1f / 3f, updated.completionFraction, 0.01f)
+        assertTrue(updated.stepFundamental)
+        assertEquals(0.2f, updated.completionFraction, 0.01f)
 
-        // Check 2: Revised
-        repository.setChapterRevised(firstChapter.id, true)
+        // Check 2: Ex 1 (40%)
+        repository.setChapterEx1(firstChapter.id, true)
         updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.isRevised)
-        assertEquals(2f / 3f, updated.completionFraction, 0.01f)
+        assertTrue(updated.stepEx1)
+        assertEquals(0.4f, updated.completionFraction, 0.01f)
 
-        // Check 3: PYQs Done
-        repository.setChapterPyqsDone(firstChapter.id, true)
+        // Check 3: Ex 2 (60%)
+        repository.setChapterEx2(firstChapter.id, true)
         updated = repository.allChapters.first().first { it.id == firstChapter.id }
-        assertTrue(updated.isPyqsDone)
-        assertEquals(1f, updated.completionFraction, 0.01f)
+        assertTrue(updated.stepEx2)
+        assertEquals(0.6f, updated.completionFraction, 0.01f)
+
+        // Check 4: Ex 3 (80%)
+        repository.setChapterEx3(firstChapter.id, true)
+        updated = repository.allChapters.first().first { it.id == firstChapter.id }
+        assertTrue(updated.stepEx3)
+        assertEquals(0.8f, updated.completionFraction, 0.01f)
+
+        // Check 5: PYQs (100%)
+        repository.setChapterPyqs(firstChapter.id, true)
+        updated = repository.allChapters.first().first { it.id == firstChapter.id }
+        assertTrue(updated.stepPyqs)
+        assertEquals(1.0f, updated.completionFraction, 0.01f)
 
         // Notes and Custom URL
         repository.updateChapterNotesAndUrl(firstChapter.id, "**Key formulas**:\nF = ma", "https://drive.google.com/test-notes")
         updated = repository.allChapters.first().first { it.id == firstChapter.id }
         assertEquals("**Key formulas**:\nF = ma", updated.notes)
         assertEquals("https://drive.google.com/test-notes", updated.customUrl)
+    }
+
+    @Test
+    fun `resetAllData wipes user profile, trees, coins, and checkpoints`() = runTest {
+        repository.checkAndInitializeData()
+        repository.saveUserProfile(
+            com.example.data.model.UserProfileEntity(
+                name = "Soumyajit",
+                hobbies = "Coding & Music",
+                dailyTargetMinutes = 120,
+                isOnboarded = true
+            )
+        )
+        repository.recordSession(
+            species = TreeSpecies.OAK,
+            status = TreeStatus.ALIVE,
+            subjectTag = "Physics",
+            durationSeconds = 1800
+        )
+        val profileBefore = repository.userProfile.first()
+        assertTrue(profileBefore != null && profileBefore.isOnboarded)
+
+        // Perform full reset
+        repository.resetAllData()
+
+        val profileAfter = repository.userProfile.first()
+        assertEquals(null, profileAfter) // Wiped completely, back to onboarding!
+        val treesCount = repository.totalTreesCount.first()
+        assertEquals(0, treesCount)
+        val coins = repository.economy.first()?.coins ?: 0
+        assertEquals(0, coins)
     }
 
     @Test

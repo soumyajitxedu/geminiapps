@@ -88,6 +88,8 @@ import com.example.ui.MainViewModel
 import com.example.ui.theme.ForestGreenPrimary
 import com.example.ui.theme.PixelifySansFontFamily
 
+import com.example.util.ExamCountdownUtil
+
 @Composable
 fun SyllabusScreen(
     viewModel: MainViewModel,
@@ -104,15 +106,15 @@ fun SyllabusScreen(
         allChapters.groupBy { it.subject }
     }
 
-    // 3-step completion calculation: each chapter has completionFraction (0, 0.33, 0.66, 1.0)
+    // 5-step completion calculation: each chapter has 5 checkpoints (20% each)
     val overallProgress = if (allChapters.isNotEmpty()) {
         (allChapters.sumOf { it.completionFraction.toDouble() }.toFloat() / allChapters.size.toFloat()).coerceIn(0f, 1f)
     } else 0f
     val overallPercent = (overallProgress * 100).toInt()
 
-    val totalCheckpoints = allChapters.size * 3
+    val totalCheckpoints = allChapters.size * 5
     val completedCheckpoints = allChapters.sumOf {
-        (if (it.isLearned) 1 else 0) + (if (it.isRevised) 1 else 0) + (if (it.isPyqsDone) 1 else 0)
+        (if (it.stepFundamental) 1 else 0) + (if (it.stepEx1) 1 else 0) + (if (it.stepEx2) 1 else 0) + (if (it.stepEx3) 1 else 0) + (if (it.stepPyqs) 1 else 0)
     }
 
     Box(
@@ -143,7 +145,7 @@ fun SyllabusScreen(
                                 )
                             )
                             Text(
-                                text = "Class 10 Board Curriculum • 3-Step Mastery",
+                                text = "Class 10 Board Curriculum • 5-Step Mastery",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -198,7 +200,7 @@ fun SyllabusScreen(
                             )
                             Spacer(modifier = Modifier.height(6.dp))
                             Text(
-                                text = "Each chapter requires 3 steps: 1. Learned 2. Revised 3. PYQs Done",
+                                text = "5 Checkpoints: 1. Fundamental • 2. Exercise 1 • 3. Exercise 2 • 4. Exercise 3 • 5. PYQs / Revision",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -244,7 +246,6 @@ fun SyllabusScreen(
                         label = "expand_arrow"
                     )
 
-                    // Calculate subject progress based on 3-step checkpoints
                     val subjectProgress = if (subjectChapters.isNotEmpty()) {
                         (subjectChapters.sumOf { it.completionFraction.toDouble() }.toFloat() / subjectChapters.size.toFloat()).coerceIn(0f, 1f)
                     } else 0f
@@ -342,9 +343,11 @@ fun SyllabusScreen(
                                         ChapterRowWithCheckpoints(
                                             index = index + 1,
                                             chapter = chapter,
-                                            onToggleLearned = { viewModel.toggleChapterLearned(chapter) },
-                                            onToggleRevised = { viewModel.toggleChapterRevised(chapter) },
-                                            onTogglePyqs = { viewModel.toggleChapterPyqsDone(chapter) },
+                                            onToggleFundamental = { viewModel.toggleChapterFundamental(chapter) },
+                                            onToggleEx1 = { viewModel.toggleChapterEx1(chapter) },
+                                            onToggleEx2 = { viewModel.toggleChapterEx2(chapter) },
+                                            onToggleEx3 = { viewModel.toggleChapterEx3(chapter) },
+                                            onTogglePyqs = { viewModel.toggleChapterPyqs(chapter) },
                                             onOpenNotes = { noteEditingChapter = chapter }
                                         )
                                         if (index < subjectChapters.size - 1) {
@@ -361,12 +364,15 @@ fun SyllabusScreen(
                     }
                 }
             } else {
-                // Exam Targets & PYQ Tab
+                // Exam Targets & PYQ Tab with accurate dynamic countdowns
                 item {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
+                        val preBoardDays = ExamCountdownUtil.getPreBoardDaysLeft()
+                        val boardExamDays = ExamCountdownUtil.getBoardExamDaysLeft()
+
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(
@@ -392,17 +398,98 @@ fun SyllabusScreen(
                                 }
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    text = "Class 10 Board Examinations are approaching. Finish all 3 checkpoints for maximum scores!",
+                                    text = "Class 10 Board Examinations are approaching. Finish all 5 checkpoints for maximum scores!",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                 )
+                            }
+                        }
+
+                        // Pre-Boards Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Pre-Board Exams",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "Target Date: Dec 15, 2026",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.secondaryContainer
+                                ) {
+                                    Text(
+                                        text = "$preBoardDays Days Left",
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        // Board Exams Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "ICSE Board Exams 2027",
+                                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                    Text(
+                                        text = "Target Date: Feb 22, 2027",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer
+                                ) {
+                                    Text(
+                                        text = "$boardExamDays Days Left",
+                                        style = MaterialTheme.typography.labelLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        ),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
-
         // Markdown Notes & Custom URL Dialog
         noteEditingChapter?.let { chapter ->
             ChapterNotesDialog(
@@ -422,8 +509,10 @@ fun SyllabusScreen(
 fun ChapterRowWithCheckpoints(
     index: Int,
     chapter: ChapterProgress,
-    onToggleLearned: () -> Unit,
-    onToggleRevised: () -> Unit,
+    onToggleFundamental: () -> Unit,
+    onToggleEx1: () -> Unit,
+    onToggleEx2: () -> Unit,
+    onToggleEx3: () -> Unit,
     onTogglePyqs: () -> Unit,
     onOpenNotes: () -> Unit
 ) {
@@ -498,52 +587,73 @@ fun ChapterRowWithCheckpoints(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 3-Step Checkpoint Chips Row
+        // 5-Step Checkpoint Chips (Row 1: Fundamental, Ex 1, Ex 2; Row 2: Ex 3, PYQs/Rev + % badge)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             CheckpointPill(
-                label = "Learned",
-                checked = chapter.isLearned,
-                onClick = onToggleLearned,
+                label = "1. Fundamental",
+                checked = chapter.stepFundamental,
+                onClick = onToggleFundamental,
                 modifier = Modifier.weight(1f)
             )
             CheckpointPill(
-                label = "Revised",
-                checked = chapter.isRevised,
-                onClick = onToggleRevised,
+                label = "2. Ex 1",
+                checked = chapter.stepEx1,
+                onClick = onToggleEx1,
                 modifier = Modifier.weight(1f)
             )
             CheckpointPill(
-                label = "PYQs Done",
-                checked = chapter.isPyqsDone,
+                label = "3. Ex 2",
+                checked = chapter.stepEx2,
+                onClick = onToggleEx2,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CheckpointPill(
+                label = "4. Ex 3",
+                checked = chapter.stepEx3,
+                onClick = onToggleEx3,
+                modifier = Modifier.weight(1f)
+            )
+            CheckpointPill(
+                label = "5. PYQs / Rev",
+                checked = chapter.stepPyqs,
                 onClick = onTogglePyqs,
-                modifier = Modifier.weight(1.1f)
+                modifier = Modifier.weight(1.3f)
             )
 
             // Percent badge
             Surface(
                 shape = RoundedCornerShape(6.dp),
-                color = when (completionPercent) {
-                    100 -> Color(0xFF10B981).copy(alpha = 0.2f)
-                    66 -> Color(0xFF3B82F6).copy(alpha = 0.2f)
-                    33 -> Color(0xFFF59E0B).copy(alpha = 0.2f)
+                color = when {
+                    completionPercent == 100 -> Color(0xFF10B981).copy(alpha = 0.2f)
+                    completionPercent >= 60 -> Color(0xFF3B82F6).copy(alpha = 0.2f)
+                    completionPercent >= 20 -> Color(0xFFF59E0B).copy(alpha = 0.2f)
                     else -> MaterialTheme.colorScheme.surfaceVariant
                 }
             ) {
                 Text(
                     text = "$completionPercent%",
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
-                    color = when (completionPercent) {
-                        100 -> Color(0xFF047857)
-                        66 -> Color(0xFF1D4ED8)
-                        33 -> Color(0xFFB45309)
+                    color = when {
+                        completionPercent == 100 -> Color(0xFF047857)
+                        completionPercent >= 60 -> Color(0xFF1D4ED8)
+                        completionPercent >= 20 -> Color(0xFFB45309)
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     },
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                 )
             }
         }

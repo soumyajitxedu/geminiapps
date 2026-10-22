@@ -47,6 +47,11 @@ data class ChapterProgress(
     val id: String, // e.g. "Physics_Force"
     val subject: String,
     val chapterName: String,
+    val stepFundamental: Boolean = false,
+    val stepEx1: Boolean = false,
+    val stepEx2: Boolean = false,
+    val stepEx3: Boolean = false,
+    val stepPyqs: Boolean = false,
     val isLearned: Boolean = false,
     val isRevised: Boolean = false,
     val isPyqsDone: Boolean = false,
@@ -55,10 +60,18 @@ data class ChapterProgress(
     val orderIndex: Int = 0
 ) {
     val completionFraction: Float
-        get() = ((if (isLearned) 1 else 0) + (if (isRevised) 1 else 0) + (if (isPyqsDone) 1 else 0)) / 3f
+        get() {
+            var count = 0
+            if (stepFundamental) count++
+            if (stepEx1) count++
+            if (stepEx2) count++
+            if (stepEx3) count++
+            if (stepPyqs) count++
+            return count / 5f
+        }
 
     val isCompleted: Boolean
-        get() = isLearned && isRevised && isPyqsDone
+        get() = stepFundamental && stepEx1 && stepEx2 && stepEx3 && stepPyqs
 }
 
 @Entity(tableName = "economy")
@@ -147,7 +160,9 @@ data class UserProfileEntity(
     val hobbies: String = "",
     val dailyTargetMinutes: Int = 120, // 2 hours
     val isOnboarded: Boolean = false,
-    val usePixelFont: Boolean = true
+    val usePixelFont: Boolean = true,
+    val currentStreak: Int = 0,
+    val lastActiveDate: String = "" // "yyyy-MM-dd"
 )
 
 

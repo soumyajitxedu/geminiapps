@@ -28,7 +28,7 @@ import com.example.data.model.UserProfileEntity
         ResourceEntity::class,
         UserProfileEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class FocusGroveDatabase : RoomDatabase() {

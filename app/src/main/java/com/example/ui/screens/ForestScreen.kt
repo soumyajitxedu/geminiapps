@@ -154,8 +154,40 @@ fun ForestScreen(
                             }
                         }
 
-                        // Right header: Coin Badge & Settings Gear Button
+                        // Right header: Streak Badge, Coin Badge & Settings Gear Button
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Streak Counter with 🔥 Fire icon
+                            val streak = userProfile?.currentStreak ?: 0
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFFF97316).copy(alpha = 0.15f),
+                                tonalElevation = 2.dp,
+                                modifier = Modifier
+                                    .testTag("streak_badge")
+                                    .border(
+                                        1.dp,
+                                        Color(0xFFF97316).copy(alpha = 0.6f),
+                                        RoundedCornerShape(20.dp)
+                                    )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🔥", fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${streak}d",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFFEA580C)
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
                                 color = MaterialTheme.colorScheme.surfaceVariant,
@@ -169,19 +201,19 @@ fun ForestScreen(
                                     )
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.MonetizationOn,
                                         contentDescription = "Study Coins",
                                         tint = CoinGold,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(16.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "${economy?.coins ?: 0}",
-                                        style = MaterialTheme.typography.titleMedium.copy(
+                                        style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
                                         )
@@ -189,7 +221,7 @@ fun ForestScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
 
                             IconButton(
                                 onClick = onOpenSettings,
@@ -208,7 +240,10 @@ fun ForestScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // ICSE Countdown Cards Banner
+                    // ICSE Countdown Cards Banner - dynamic calculation
+                    val preBoardDays = com.example.util.ExamCountdownUtil.getPreBoardDaysLeft()
+                    val boardExamDays = com.example.util.ExamCountdownUtil.getBoardExamDaysLeft()
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -238,7 +273,7 @@ fun ForestScreen(
                                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
                                     )
                                     Text(
-                                        text = "81 days left",
+                                        text = "$preBoardDays days left",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onPrimaryContainer
                                     )
@@ -271,7 +306,7 @@ fun ForestScreen(
                                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                     )
                                     Text(
-                                        text = "119 days left",
+                                        text = "$boardExamDays days left",
                                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                         color = MaterialTheme.colorScheme.onSecondaryContainer
                                     )

@@ -891,16 +891,22 @@ fun TimerScreen(
                 }
 
                 Text(
-                    text = "⚠️ Tree dies ONLY if you press Give Up or leave the timer screen.",
+                    text = "⚠️ Tree dies ONLY if you press Give Up or leave the app entirely.",
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     color = if (isFailed) Color.LightGray else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // Animated Pet at bottom with motivational speech bubble
+            // Animated Pet at bottom with motivational speech bubble (tappable to randomize quote)
             PixelAnimatedPet(
                 speechQuote = if (isRunning) "Focus on $selectedChapter! $currentQuote".take(42) + "..." else "Ready to plant a tree! Pick your subject! 🌿",
-                modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
+                modifier = Modifier
+                    .padding(top = 4.dp, bottom = 4.dp)
+                    .clickable {
+                        viewModel.soundEffectManager.playUiSelect()
+                        viewModel.randomizeQuote()
+                    }
+                    .testTag("animated_pet_widget")
             )
         }
 

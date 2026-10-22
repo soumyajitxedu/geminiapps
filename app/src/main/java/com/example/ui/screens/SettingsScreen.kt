@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -110,8 +111,15 @@ fun SettingsScreen(
     val googleEmail by viewModel.googleCalendarEmail.collectAsStateWithLifecycle()
     val googleAutoSync by viewModel.googleCalendarAutoSync.collectAsStateWithLifecycle()
     val googleLastSync by viewModel.googleCalendarLastSync.collectAsStateWithLifecycle()
-
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    var showAboutLegalDialog by remember { mutableStateOf(false) }
+    var showLogsDialog by remember { mutableStateOf(false) }
+    var serialTapCount by remember { mutableStateOf(0) }
+    var editTimerText by remember { mutableStateOf("") }
+
+    val isDebugUnlocked by viewModel.isDebugUnlocked.collectAsStateWithLifecycle()
+    val isPlayfulMode by viewModel.isPlayfulMode.collectAsStateWithLifecycle()
+    val debugLogs by viewModel.debugLogs.collectAsStateWithLifecycle()
 
     BackHandler {
         onClose()
@@ -705,7 +713,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Section 4: About Focus Grove
+            // Section 4: About & Legal
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -731,7 +739,182 @@ fun SettingsScreen(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.soundEffectManager.playUiClick()
+                            showAboutLegalDialog = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("about_and_legal_button"),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("About & Legal (Credits, Privacy & Disclaimer)")
+                    }
                 }
+            }
+
+            // Hidden Debug Menu (Easter Egg unlocked via tapping Serial Number 10 times)
+            if (isDebugUnlocked) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("debug_mode_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(24.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "🛠️ Developer Debug Mode",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            )
+                        }
+
+                        // 1. Demo Timer Toggle (10 seconds)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Demo Timer (10 Seconds)", fontWeight = FontWeight.Bold)
+                                Text("Shrinks timer duration to 10s for testing", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = demoModeEnabled,
+                                onCheckedChange = {
+                                    viewModel.soundEffectManager.playUiClick()
+                                    viewModel.setDemoMode(it)
+                                }
+                            )
+                        }
+
+                        // 2. Playful Mode Toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text("Playful Mode", fontWeight = FontWeight.Bold)
+                                Text("Surprise animations & playful pet reactions", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = isPlayfulMode,
+                                onCheckedChange = { viewModel.togglePlayfulMode() }
+                            )
+                        }
+
+                        // 3. Edit Timer Duration
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = editTimerText,
+                                onValueChange = { editTimerText = it },
+                                label = { Text("Edit Timer (Minutes)") },
+                                placeholder = { Text("e.g. 15, 45") },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
+                            )
+                            Button(
+                                onClick = {
+                                    val mins = editTimerText.toIntOrNull()
+                                    if (mins != null && mins in 1..300) {
+                                        viewModel.setCustomTimerDirect(mins)
+                                        Toast.makeText(context, "Timer set to $mins min!", Toast.LENGTH_SHORT).show()
+                                        editTimerText = ""
+                                    } else {
+                                        Toast.makeText(context, "Enter 1 to 300 minutes", Toast.LENGTH_SHORT).show()
+                                    }
+                                },
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Apply")
+                            }
+                        }
+
+                        // 4. Debug Quick Actions
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalButton(
+                                onClick = { viewModel.addDebugCoins(1000) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("+1000 Coins", fontSize = 12.sp)
+                            }
+
+                            FilledTonalButton(
+                                onClick = {
+                                    viewModel.clearCache()
+                                    Toast.makeText(context, "Cache cleared!", Toast.LENGTH_SHORT).show()
+                                },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text("Clear Cache", fontSize = 12.sp)
+                            }
+                        }
+
+                        FilledTonalButton(
+                            onClick = { showLogsDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("View Database Logs")
+                        }
+                    }
+                }
+            }
+
+            // Bottom Easter Egg Serial Label (Tap 10 times to unlock)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Build Serial Number: FG-2026-ICSE-984098",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier
+                        .clickable {
+                            serialTapCount++
+                            viewModel.soundEffectManager.playUiClick()
+                            if (serialTapCount >= 10 && !isDebugUnlocked) {
+                                viewModel.unlockDebugMode()
+                                Toast.makeText(context, "🎉 Hidden Debug Mode Unlocked!", Toast.LENGTH_SHORT).show()
+                            } else if (serialTapCount in 5..9 && !isDebugUnlocked) {
+                                Toast.makeText(context, "${10 - serialTapCount} taps away from developer tools", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                        .testTag("build_serial_number_label")
+                )
             }
         }
     }
@@ -847,6 +1030,131 @@ fun SettingsScreen(
             dismissButton = {
                 TextButton(onClick = { showProfileEditDialog = false }) {
                     Text("Cancel")
+                }
+            }
+        )
+    }
+
+    // About & Legal Dialog (Scrollable with Credits, Privacy Policy, Disclaimer)
+    if (showAboutLegalDialog) {
+        AlertDialog(
+            onDismissRequest = { showAboutLegalDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.School,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "About & Legal",
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = com.example.ui.theme.PixelifySansFontFamily
+                    )
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(380.dp)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    // 1. Credits & Attribution
+                    Text(
+                        text = "1. Credits & Attribution",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Text(
+                        text = "• Creator & Lead Developer: Soumyajit Das\n• AI Coding Agents & Assistants: Agent GPT Luna, Gemini 3.8 Flash, DeepSeek (v4.1/v2)\n• Resource Attribution: \"A massive thank you to the creators of the study materials, notes, and previous year question papers used in this app.\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 2. Privacy Policy
+                    Text(
+                        text = "2. Privacy Policy",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Text(
+                        text = "\"We value your privacy. This app is designed as an offline-first application. All your personal data, including your study progress, notes, inventory, and focus timers, are stored locally on your device via a Room Database. We do not collect, track, or upload your personal information to any external servers. There are no third-party trackers.\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 3. Disclaimer
+                    Text(
+                        text = "3. Disclaimer",
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+                    Text(
+                        text = "\"This application is an independent, student-made project designed to help users track their ICSE syllabus and improve focus.\n\n• The app is not affiliated with, endorsed by, or connected to the CISCE (Council for the Indian School Certificate Examinations) or any specific school.\n\n• The study resources, notes, and PDFs linked in the inventory section are publicly available materials or shared resources. The developer does not claim ownership of these materials.\n\n• The app is provided as a study aid, and we do not guarantee any specific academic results or outcomes.\"",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = { showAboutLegalDialog = false },
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Close")
+                }
+            }
+        )
+    }
+
+    // Database & Debug Logs Viewer Dialog
+    if (showLogsDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogsDialog = false },
+            title = {
+                Text(
+                    text = "Application & Database Logs",
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = com.example.ui.theme.PixelifySansFontFamily
+                )
+            },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                        .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(8.dp))
+                        .padding(10.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    debugLogs.forEach { logLine ->
+                        Text(
+                            text = logLine,
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            color = Color(0xFF4ADE80),
+                            modifier = Modifier.padding(vertical = 2.dp)
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showLogsDialog = false }) {
+                    Text("Done")
                 }
             }
         )

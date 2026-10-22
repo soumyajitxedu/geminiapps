@@ -22,4 +22,10 @@ interface UserProfileDao {
 
     @Query("UPDATE user_profile SET usePixelFont = :usePixel WHERE id = 1")
     suspend fun setFontPreference(usePixel: Boolean)
+
+    @Query("UPDATE user_profile SET currentStreak = :streak, lastActiveDate = :date WHERE id = 1")
+    suspend fun updateStreak(streak: Int, date: String)
+
+    @Query("DELETE FROM user_profile")
+    suspend fun clearProfile()
 }

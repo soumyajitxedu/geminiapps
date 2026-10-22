@@ -236,8 +236,26 @@ class FocusGroveRepository(
         if (status == TreeStatus.ALIVE) {
             // Core economy reward: 10 coins per grown tree!
             economyDao.addCoins(10)
+            recordDailyStreak()
         }
         treeId
+    }
+
+    suspend fun recordDailyStreak(): Int = withContext(Dispatchers.IO) {
+        val profile = userProfileDao.getUserProfile().firstOrNull() ?: return@withContext 0
+        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val todayStr = sdf.format(Date())
+        val cal = java.util.Calendar.getInstance()
+        cal.add(java.util.Calendar.DAY_OF_YEAR, -1)
+        val yesterdayStr = sdf.format(cal.time)
+
+        val newStreak = when (profile.lastActiveDate) {
+            todayStr -> if (profile.currentStreak == 0) 1 else profile.currentStreak
+            yesterdayStr -> profile.currentStreak + 1
+            else -> 1
+        }
+        userProfileDao.updateStreak(newStreak, todayStr)
+        newStreak
     }
 
     suspend fun simulateTreeDeath(
@@ -319,6 +337,7 @@ class FocusGroveRepository(
     suspend fun resetAllData() = withContext(Dispatchers.IO) {
         treeDao.clearAll()
         quizDao.clearAll()
+        userProfileDao.clearProfile()
         economyDao.saveEconomy(
             UserEconomy(
                 id = 1,
@@ -331,9 +350,11 @@ class FocusGroveRepository(
         )
         val initialList = InitialSyllabusData.createInitialChaptersList()
         initialList.forEach { chapter ->
-            syllabusDao.setLearned(chapter.id, false)
-            syllabusDao.setRevised(chapter.id, false)
-            syllabusDao.setPyqsDone(chapter.id, false)
+            syllabusDao.setFundamental(chapter.id, false)
+            syllabusDao.setEx1(chapter.id, false)
+            syllabusDao.setEx2(chapter.id, false)
+            syllabusDao.setEx3(chapter.id, false)
+            syllabusDao.setPyqs(chapter.id, false)
             syllabusDao.updateNotesAndUrl(chapter.id, "", "")
         }
     }
@@ -342,18 +363,38 @@ class FocusGroveRepository(
         treeDao.clearAll()
     }
 
-    // --- Syllabus Checkpoints & Notes ---
+    // --- Syllabus 5-Step Checkpoints & Notes ---
+
+    suspend fun setChapterFundamental(chapterId: String, value: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setFundamental(chapterId, value)
+    }
+
+    suspend fun setChapterEx1(chapterId: String, value: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setEx1(chapterId, value)
+    }
+
+    suspend fun setChapterEx2(chapterId: String, value: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setEx2(chapterId, value)
+    }
+
+    suspend fun setChapterEx3(chapterId: String, value: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setEx3(chapterId, value)
+    }
+
+    suspend fun setChapterPyqs(chapterId: String, value: Boolean) = withContext(Dispatchers.IO) {
+        syllabusDao.setPyqs(chapterId, value)
+    }
 
     suspend fun setChapterLearned(chapterId: String, learned: Boolean) = withContext(Dispatchers.IO) {
-        syllabusDao.setLearned(chapterId, learned)
+        syllabusDao.setFundamental(chapterId, learned)
     }
 
     suspend fun setChapterRevised(chapterId: String, revised: Boolean) = withContext(Dispatchers.IO) {
-        syllabusDao.setRevised(chapterId, revised)
+        syllabusDao.setEx1(chapterId, revised)
     }
 
     suspend fun setChapterPyqsDone(chapterId: String, pyqsDone: Boolean) = withContext(Dispatchers.IO) {
-        syllabusDao.setPyqsDone(chapterId, pyqsDone)
+        syllabusDao.setPyqs(chapterId, pyqsDone)
     }
 
     suspend fun updateChapterNotesAndUrl(chapterId: String, notes: String, customUrl: String) = withContext(Dispatchers.IO) {
