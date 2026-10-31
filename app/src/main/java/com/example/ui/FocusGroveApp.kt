@@ -45,6 +45,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.ui.screens.AnalysisShopScreen
 import com.example.ui.screens.ForestScreen
 import com.example.ui.screens.QuizScreen
+import com.example.ui.screens.StudyToolsScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.screens.SyllabusScreen
 import com.example.ui.screens.TimerScreen
@@ -67,7 +68,7 @@ enum class GroveScreen(
     SCHEDULE("Schedule", Icons.Filled.DateRange, Icons.Outlined.DateRange, "nav_schedule"),
     LIBRARY("Library", Icons.Filled.LocalLibrary, Icons.Outlined.LocalLibrary, "nav_library"),
     SYLLABUS("Syllabus", Icons.Filled.MenuBook, Icons.Outlined.MenuBook, "nav_syllabus"),
-    QUIZZES("Quizzes", Icons.Filled.Quiz, Icons.Outlined.Quiz, "nav_quizzes"),
+    QUIZZES("Study Tools", Icons.Filled.Quiz, Icons.Outlined.Quiz, "nav_quizzes"),
     ANALYSIS_SHOP("Shop", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag, "nav_shop")
 }
 
@@ -178,7 +179,7 @@ fun FocusGroveApp(
                         GroveScreen.SYLLABUS -> SyllabusScreen(
                             viewModel = viewModel
                         )
-                        GroveScreen.QUIZZES -> QuizScreen(
+                        GroveScreen.QUIZZES -> StudyToolsScreen(
                             viewModel = viewModel
                         )
                         GroveScreen.ANALYSIS_SHOP -> AnalysisShopScreen(

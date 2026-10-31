@@ -372,4 +372,85 @@ class ExampleRobolectricTest {
         val afterDelete = repository.allResources.first()
         assertFalse(afterDelete.any { it.id == id })
     }
+
+    @Test
+    fun `StudyToolParser parses valid flashcards and rejects invalid json gracefully`() {
+        val validJson = """
+            ```json
+            {
+              "chapter": "Maths - Matrices",
+              "cards": [
+                {"front": "What is an identity matrix?", "back": "A square matrix with 1s on main diagonal and 0s elsewhere."},
+                {"front": "Can two matrices of order 2x3 and 2x3 be multiplied?", "back": "No, number of columns in A must equal rows in B."}
+              ]
+            }
+            ```
+        """.trimIndent()
+
+        val deck = com.example.data.model.StudyToolParser.parseFlashcards(validJson)
+        assertEquals("Maths - Matrices", deck.chapter)
+        assertEquals(2, deck.cards.size)
+        assertEquals("What is an identity matrix?", deck.cards[0].front)
+
+        // Invalid JSON must throw exception cleanly without crash
+        try {
+            com.example.data.model.StudyToolParser.parseFlashcards("invalid raw text {corrupted")
+            org.junit.Assert.fail("Expected exception for malformed JSON")
+        } catch (_: Exception) {
+            // Success: safely caught
+        }
+    }
+
+    @Test
+    fun `StudyToolParser parses hierarchical mind map correctly`() {
+        val mindMapJson = """
+            {
+              "chapter": "Chemistry - Mole Concept",
+              "root": {
+                "title": "MOLE CONCEPT",
+                "children": [
+                  {
+                    "title": "Avogadro's Number",
+                    "children": [
+                      {"title": "6.022 x 10^23 particles", "children": []}
+                    ]
+                  },
+                  {
+                    "title": "Molar Volume",
+                    "children": [
+                      {"title": "22.4 L at STP", "children": []}
+                    ]
+                  }
+                ]
+              }
+            }
+        """.trimIndent()
+
+        val mapData = com.example.data.model.StudyToolParser.parseMindMap(mindMapJson)
+        assertEquals("Chemistry - Mole Concept", mapData.chapter)
+        assertEquals("MOLE CONCEPT", mapData.root.title)
+        assertEquals(2, mapData.root.children.size)
+        assertEquals("Avogadro's Number", mapData.root.children[0].title)
+    }
+
+    @Test
+    fun `MainViewModel preserves running timer state on backgrounding`() = runTest {
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        val viewModel = com.example.ui.MainViewModel(app)
+        viewModel.setDemoMode(true) // 10 second timer
+        viewModel.startTimer()
+
+        assertEquals(com.example.ui.TimerStatus.RUNNING, viewModel.timerStatus.value)
+
+        // Simulate app minimized / screen locked (ON_STOP)
+        viewModel.onAppBackgrounded()
+
+        // Timer must continue running! Must NOT be cancelled or FAILED!
+        assertEquals(com.example.ui.TimerStatus.RUNNING, viewModel.timerStatus.value)
+        assertEquals(null, viewModel.lastSessionResult.value)
+
+        // Clean up
+        viewModel.resetTimerToIdle()
+        assertEquals(com.example.ui.TimerStatus.IDLE, viewModel.timerStatus.value)
+    }
 }

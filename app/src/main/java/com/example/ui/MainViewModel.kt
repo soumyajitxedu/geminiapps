@@ -34,6 +34,12 @@ import kotlinx.coroutines.launch
 import com.example.data.calendar.GoogleCalendarManager
 import com.example.data.model.ResourceEntity
 import com.example.data.model.ScheduleEventEntity
+import com.example.data.model.FlashcardDeck
+import com.example.data.model.FlashcardItem
+import com.example.data.model.MindMapData
+import com.example.data.model.MindMapNode
+import com.example.data.model.StudyToolParser
+import com.example.service.FocusTimerService
 import com.example.audio.SoundEffectManager
 import com.example.ui.notification.TimerNotificationManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -330,6 +336,79 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _isQuizFinished = MutableStateFlow(false)
     val isQuizFinished: StateFlow<Boolean> = _isQuizFinished.asStateFlow()
 
+    // Study Tools: Flashcards & Mind Map
+    private val _flashcardDeck = MutableStateFlow<FlashcardDeck?>(StudyToolParser.getSampleFlashcards())
+    val flashcardDeck: StateFlow<FlashcardDeck?> = _flashcardDeck.asStateFlow()
+
+    private val _currentCardIndex = MutableStateFlow(0)
+    val currentCardIndex: StateFlow<Int> = _currentCardIndex.asStateFlow()
+
+    private val _mindMapData = MutableStateFlow<MindMapData?>(StudyToolParser.getSampleMindMap())
+    val mindMapData: StateFlow<MindMapData?> = _mindMapData.asStateFlow()
+
+    private val _studyToolErrorMessage = MutableStateFlow<String?>(null)
+    val studyToolErrorMessage: StateFlow<String?> = _studyToolErrorMessage.asStateFlow()
+
+    fun loadFlashcardsFromJson(jsonString: String): Boolean {
+        return try {
+            val deck = StudyToolParser.parseFlashcards(jsonString)
+            _flashcardDeck.value = deck
+            _currentCardIndex.value = 0
+            _studyToolErrorMessage.value = null
+            true
+        } catch (e: Exception) {
+            _studyToolErrorMessage.value = "Invalid JSON format. Please try again."
+            false
+        }
+    }
+
+    fun loadMindMapFromJson(jsonString: String): Boolean {
+        return try {
+            val data = StudyToolParser.parseMindMap(jsonString)
+            _mindMapData.value = data
+            _studyToolErrorMessage.value = null
+            true
+        } catch (e: Exception) {
+            _studyToolErrorMessage.value = "Invalid JSON format. Please try again."
+            false
+        }
+    }
+
+    fun loadSampleFlashcards() {
+        _flashcardDeck.value = StudyToolParser.getSampleFlashcards()
+        _currentCardIndex.value = 0
+        _studyToolErrorMessage.value = null
+    }
+
+    fun loadSampleMindMap() {
+        _mindMapData.value = StudyToolParser.getSampleMindMap()
+        _studyToolErrorMessage.value = null
+    }
+
+    fun nextCard() {
+        val total = _flashcardDeck.value?.cards?.size ?: 0
+        if (total > 0 && _currentCardIndex.value < total - 1) {
+            _currentCardIndex.value += 1
+        }
+    }
+
+    fun prevCard() {
+        if (_currentCardIndex.value > 0) {
+            _currentCardIndex.value -= 1
+        }
+    }
+
+    fun setCardIndex(index: Int) {
+        val total = _flashcardDeck.value?.cards?.size ?: 0
+        if (index in 0 until total) {
+            _currentCardIndex.value = index
+        }
+    }
+
+    fun clearStudyToolError() {
+        _studyToolErrorMessage.value = null
+    }
+
     init {
         viewModelScope.launch {
             repository.checkAndInitializeData(application)
@@ -408,7 +487,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _totalDurationSeconds.value = duration
             _remainingSeconds.value = duration
 
-            notificationManager.showOrUpdateTimerNotification(
+            FocusTimerService.start(
+                context = getApplication(),
                 timeFormatted = formatDuration(_remainingSeconds.value),
                 speciesName = speciesName,
                 subjectTag = _selectedSubject.value,
@@ -419,7 +499,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 while (_remainingSeconds.value > 0) {
                     delay(1000)
                     _remainingSeconds.value -= 1
-                    notificationManager.showOrUpdateTimerNotification(
+                    FocusTimerService.update(
+                        context = getApplication(),
                         timeFormatted = formatDuration(_remainingSeconds.value),
                         speciesName = speciesName,
                         subjectTag = _selectedSubject.value,
@@ -432,7 +513,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         } else {
             // Stopwatch Mode (Count-up)
             _elapsedStopwatchSeconds.value = 0
-            notificationManager.showOrUpdateTimerNotification(
+            FocusTimerService.start(
+                context = getApplication(),
                 timeFormatted = formatDuration(_elapsedStopwatchSeconds.value),
                 speciesName = speciesName,
                 subjectTag = _selectedSubject.value,
@@ -442,7 +524,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 while (true) {
                     delay(1000)
                     _elapsedStopwatchSeconds.value += 1
-                    notificationManager.showOrUpdateTimerNotification(
+                    FocusTimerService.update(
+                        context = getApplication(),
                         timeFormatted = formatDuration(_elapsedStopwatchSeconds.value),
                         speciesName = speciesName,
                         subjectTag = _selectedSubject.value,
@@ -460,6 +543,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun completeCountdownSession() {
+        FocusTimerService.stop(getApplication())
         soundGenerator.stop()
         stopCustomAudio()
         notificationManager.cancelNotification()
@@ -503,6 +587,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun finishStopwatchSession() {
         if (_timerStatus.value != TimerStatus.RUNNING) return
         timerJob?.cancel()
+        FocusTimerService.stop(getApplication())
         soundGenerator.stop()
         stopCustomAudio()
         notificationManager.cancelNotification()
@@ -547,6 +632,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun giveUp() {
         if (_timerStatus.value != TimerStatus.RUNNING) return
         timerJob?.cancel()
+        FocusTimerService.stop(getApplication())
         soundGenerator.stop()
         stopCustomAudio()
 
@@ -558,14 +644,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         // No-op: Timer keeps running while user navigates inside app
     }
 
-    // Screen locked or app minimized/closed: ONLY then does the tree die
+    // Screen locked or app minimized: Timer continues running in background via Foreground Service!
+    // Tree ONLY dies if user explicitly gives up or if process is terminated.
     fun onAppBackgrounded() {
-        if (_timerStatus.value == TimerStatus.RUNNING) {
-            timerJob?.cancel()
-            soundGenerator.stop()
-            stopCustomAudio()
-            failSession("App left or screen locked during focus session")
-        }
+        // No-op: Allow timer and Foreground Service to keep running in background!
     }
 
     private fun failSession(reason: String) {
@@ -604,6 +686,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetTimerToIdle() {
         timerJob?.cancel()
+        FocusTimerService.stop(getApplication())
         soundGenerator.stop()
         stopCustomAudio()
         notificationManager.cancelNotification()

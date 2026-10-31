@@ -38,12 +38,12 @@ class TimerNotificationManager(private val context: Context) {
         }
     }
 
-    fun showOrUpdateTimerNotification(
+    fun buildNotification(
         timeFormatted: String,
         speciesName: String,
         subjectTag: String,
         isCountdown: Boolean
-    ) {
+    ): android.app.Notification {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -54,14 +54,14 @@ class TimerNotificationManager(private val context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val title = "🌱 Cultivating $speciesName ($subjectTag)"
+        val title = "🌱 Focus Grove: $speciesName ($subjectTag)"
         val content = if (isCountdown) {
             "⏱️ $timeFormatted remaining • Keep focusing!"
         } else {
             "⏱️ $timeFormatted focused in stopwatch mode"
         }
 
-        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+        return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_idle_alarm)
             .setContentTitle(title)
             .setContentText(content)
@@ -71,7 +71,15 @@ class TimerNotificationManager(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setContentIntent(pendingIntent)
             .build()
+    }
 
+    fun showOrUpdateTimerNotification(
+        timeFormatted: String,
+        speciesName: String,
+        subjectTag: String,
+        isCountdown: Boolean
+    ) {
+        val notification = buildNotification(timeFormatted, speciesName, subjectTag, isCountdown)
         try {
             notificationManager.notify(NOTIFICATION_ID, notification)
         } catch (_: SecurityException) {

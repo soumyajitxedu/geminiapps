@@ -717,7 +717,8 @@ fun QuizScreen(
                                 }
                                 val result = viewModel.loadQuiz(jsonInputText)
                                 if (result.isFailure) {
-                                    parseErrorMessage = "JSON parse error: ${result.exceptionOrNull()?.message}"
+                                    parseErrorMessage = "Invalid JSON format. Please try again."
+                                    Toast.makeText(context, "Invalid JSON format. Please try again.", Toast.LENGTH_SHORT).show()
                                 }
                             },
                             modifier = Modifier

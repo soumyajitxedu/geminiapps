@@ -1,24 +1,29 @@
-# Focus Grove - Gamified ICSE Study Tracker & Virtual Forest
+# Study Tools Suite & Reliable Background Timer Architecture
 
-Focus Grove is a gamified productivity and syllabus tracking native Android app designed for students (pre-loaded with ICSE Class 10 chapters). It pairs a strict focus countdown with a virtual tree ecosystem where focus grows trees and earns study coins, while app abandonment withers them permanently.
+A unified upgrade implementing a persistent Android Foreground Service for the Focus Timer, transforming Quizzes into a full 3-tab Study Tools suite (Interactive Quiz, 3D Flipping Flashcards, and Pinch-and-Pan Mind Maps), and hardening JSON ingestion against crashes.
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> The following product decisions were confirmed during the planning phase:
+> The architectural decisions below synthesize your prompt and clarified preferences:
 
-- **Demo Testing Mode**: Confirmed. A quick test toggle (e.g., 10-second timer) will be available in the top bar to easily test tree growth, death animations, and coin rewards without waiting the full 30 minutes, alongside the default 30:00 focus block.
-- **ICSE Exam Countdown & Practice Scores**: Confirmed. Prominent countdown banners ("81 days left for Pre-Board", "119 days left for ICSE 2027") and ICSE Specimen/PYQ score overview will be displayed on the Forest dashboard and Syllabus screen.
-- **Tree Species in Shop**: Oak (default), Pine Tree (100 coins), Cherry Blossom (50 coins), and Bonsai (150 coins) with custom animated Compose illustrations. Ambient sounds (Rain, Lo-fi beats) can also be unlocked and played.
-- **Local Persistence Strategy**: Room Database stores trees (status: alive, dead, species, timestamp, duration), coins, unlocked skins/audio, syllabus chapter completion, and exam targets.
+- **Confirmed: AI Prompt Chapter Selection**: Freeform chapter name input with quick-fill options so you can effortlessly customize the target chapter before copying the AI prompt.
+- **Confirmed: Mind Map Layout Hierarchy**: Horizontal branching layout with the root node centered and child topics gracefully extending left and right, interconnected by smooth bezier curves.
+- **Foreground Service Lifecycle**: Android 14+ compatible `FocusTimerService` declared with `FOREGROUND_SERVICE` permission and ongoing notification. When switching tabs or locking the screen (`ON_STOP`), the timer persists uninterrupted. The tree only wilts if you explicitly tap **Give Up** or swipe the app from recent tasks.
 
 ---
 
 ## 1. Overview & Core Concept
 
-- **What It Does**: Focus Grove transforms studying into an engaging conservation game. Users initiate a 30-minute study session that plants a seedling. If the session completes with the app remaining in the foreground, the tree flourishes into the user's permanent forest and awards 10 coins. Leaving or backgrounding the app (via Android `ON_STOP` lifecycle detection) immediately withers the tree into a grey dead stump in the forest.
-- **Target Audience**: ICSE Class 10 board students (and focused learners) seeking to avoid digital distractions while conquering their syllabus.
-- **Key Value**: Replaces mindless phone checking with loss aversion and tangible visual achievement.
+- **What It Does**:
+  1. **Background Focus Engine**: The timer seamlessly runs in the background when navigating across all app tabs or locking the device screen, backed by a persistent Foreground Service.
+  2. **Study Tools Suite**: Consolidates the former Quizzes screen into **Study Tools** featuring a Material 3 `TabRow`:
+     - **Quiz**: The existing interactive ICSE chapter quiz player and JSON importer.
+     - **Flashcards**: JSON-driven active recall cards with smooth 3D `rotationY` card-flip animations, progress counter, and Previous/Next controls.
+     - **Mind Maps**: An infinite-canvas visual diagram engine with pan and pinch-to-zoom gestures (`detectTransformGestures`), rendering hierarchical concept trees horizontally.
+  3. **Bulletproof Error Handling**: Any malformed, missing, or markdown-polluted JSON input is caught safely with a user-friendly Toast/Snackbar ("Invalid JSON format. Please try again") without app crashes.
+
+- **Target Audience**: ICSE Class 10 students needing deep focus sessions and multidimensional active revision tools (testing, flashcards, concept mapping).
 
 ---
 
@@ -26,124 +31,133 @@ Focus Grove is a gamified productivity and syllabus tracking native Android app 
 
 ### Key User Flows
 
-1. **Dashboard (The Forest)**:
-   - Top Bar displays current Study Coin balance, Pre-board & ICSE 2027 countdown badges, and an Overall Syllabus Conquered progress indicator (e.g., `32% Syllabus Conquered`).
-   - The Forest Grid (`LazyVerticalGrid`): Vibrant blooming trees and grey withered dead trees arranged side-by-side. Tapping a tree reveals session details (date, subject studied, outcome).
-   - Filter/Sort chips: All trees, Vibrant only, Graveyard only.
-
-2. **Focus Timer**:
-   - Clean, distraction-free screen with a custom circular countdown progress indicator and central digital clock (`30:00`).
-   - Subject tag selector (e.g., "Studying: Physics - Force").
-   - Large prominent "Plant Seed & Start" button.
-   - Once running: "Give Up" button, active tree species preview, and background ambient audio toggle (if unlocked).
-   - Smooth animation on success: The seedling bursts into a blooming tree with confetti and a +10 Coins toast.
-   - Screen desaturation / wilting animation on failure: If user gives up or backgrounds the app, the tree turns monochrome grey and withers.
-
-3. **Syllabus Tracker**:
-   - ICSE Class 10 accordion list by subject: Physics, Chemistry, Biology, Maths, History, Geography, Literature, L2, Computer Applications.
-   - Real-time progress percentage per subject and overall.
-   - Checkboxes for each individual chapter to mark completion, persisting instantly to Room.
-   - PYQ Practice & Specimen score log table.
-
-4. **Study Analysis & Shop**:
-   - **Analytics Card**: Total focus hours/minutes, Survival rate (% alive vs dead), Trees grown vs killed, Subject distribution chart.
-   - **Grove Shop**: Spend earned coins to unlock alternative tree species (Cherry Blossom, Pine Tree, Bonsai) and ambient focus audio (Rain, Lo-fi beats).
-   - Active tree selector: Equip unlocked tree species for upcoming sessions.
+```
+[ Focus Timer Screen ] ───────────► Screen Lock / App Minimize
+         │                                    │
+         ▼                                    ▼
+Starts Timer ──► Foreground Service Starts ──► Timer Continues Counting!
+(Notification Active)                          (Tree Never Dies)
+         │                                    │
+         ▼                                    ▼
+Switch to Study Tools Tab ◄───────────────────┘ (Notification Updates Live)
+         │
+         ├───► Tab 1: Quiz (MCQ evaluation, score tracking)
+         ├───► Tab 2: Flashcards (Copy AI Prompt ➔ Paste JSON ➔ 3D Flip Cards)
+         └───► Tab 3: Mind Map (Copy AI Prompt ➔ Paste JSON ➔ Pan/Zoom Concept Graph)
+```
 
 ### Visual Identity & Theme
-- **Color Palette**: Forest Greens (`#1E3F20`, `#2E5A36`, `#4C8C5A`), Warm Wood Browns (`#6D4C41`, `#8D6E63`), Soft Cream/Parchment Backgrounds (`#F7F5EE`, Dark mode `#141A15`), and Vibrant Accents (`#E57373` for dead trees, `#F48FB1` for cherry blossoms, `#FFB300` for coins).
-- **Typography**: Clean, friendly, and legible modern typography with distinct display styling.
-- **Haptic & Visual Feedback**: Smooth scale and color transitions using Jetpack Compose animation APIs (`animateFloatAsState`, `animateColorAsState`, `AnimatedVisibility`).
+- **Theme Consistency**: Preserves Focus Grove's warm pixel-art nature aesthetic:
+  - Deep Forest Green (`#2D5A27`), Sage Foliage (`#4E8752`), Earth Brown, Soft Cream cards.
+  - Pixelated borders, crisp outlines, and retro badge styling.
+- **Flashcard 3D Flip Motion**:
+  - `animateFloatAsState` dynamically interpolates `rotationY` from `0f` to `180f`.
+  - Content switches midway at `90f` between question (front) and answer (back) with camera distance correction (`graphicsLayer { cameraDistance = 12f * density }`) to eliminate distortion.
+- **Mind Map Canvas Rendering**:
+  - Root node: Elevated rounded rectangle in Forest Green with bold topic title.
+  - Branch nodes: Level 1 and Level 2 chips with colored borders branching left and right.
+  - Connectors: Clean anti-aliased cubic Bezier curves (`path.cubicTo`) linking parent nodes to child nodes.
+  - Viewport Controls: Gesture-based pan & zoom plus Reset Zoom floating action button.
 
 ---
 
 ## 3. Key Product Decisions & Trade-Offs
 
-- **Decision 1: Lifecycle-Based Distraction Detection (`LifecycleEventObserver`)**
-  - *Chosen Approach*: Register an observer in the ViewModel / Activity listening for `Lifecycle.Event.ON_STOP`. If the timer is actively in the `RUNNING` state when `ON_STOP` fires, the session is failed immediately, the tree dies, and is committed to Room as a withered tree.
-  - *Why*: Directly enforces the "do not leave the app" mechanic requested in the brief without needing invasive background services or root permissions.
-- **Decision 2: Room Database Architecture**
-  - *Chosen Approach*: Structured SQLite entities via Room with reactive `Flow` queries for `TreeEntity`, `ChapterProgressEntity`, `UserEconomyEntity`, and `ShopItemEntity`.
-  - *Why*: 100% offline-first, instant reactivity with `collectAsStateWithLifecycle`, robust across device reboots and app updates.
-- **Decision 3: Ambient Sound Generator**
-  - *Chosen Approach*: Self-contained audio synthesizer / tone generator via Android `AudioTrack` producing calming brown/pink noise (rain simulation) and rhythmic chill lo-fi chords offline with zero external audio asset download issues.
+- **Decision 1: Timer Execution Model (Foreground Service vs In-Memory Coroutine)**
+  - *Chosen Approach*: Lightweight Android `ForegroundService` (`FocusTimerService`) bound to the application context.
+  - *Why*: Modern Android (API 31-36) aggressively kills background processes and throttles coroutines when the screen is locked or the app is minimized. A Foreground Service guarantees exact 1-second ticks, live lockscreen notification updates, and zero premature tree deaths.
+  - *Alternatives Considered*: WorkManager (unsuitable for second-level real-time countdowns); Pure ViewModel coroutine (vulnerable to OS background memory trimming).
+
+- **Decision 2: 3-Tab Study Tools Layout**
+  - *Chosen Approach*: Top-level `PrimaryTabRow` inside `StudyToolsScreen` with persistent tab indices (`0: Quiz`, `1: Flashcards`, `2: Mind Map`).
+  - *Why*: Intuitive navigation within a single screen destination without cluttering the bottom navigation bar.
+
+- **Decision 3: Mind Map Graph Computation**
+  - *Chosen Approach*: Recursive layout measurement calculating tree heights, node bounds, and horizontal branching offsets, cached in Compose state.
+  - *Why*: Guarantees instant 60 FPS rendering without heavy third-party graph dependencies.
 
 ---
 
 ## 4. Technical Architecture & Data Strategy
 
-### System Diagram
+### System & Component Diagram
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                              MainActivity                              │
-│         (Edge-to-Edge, Theme, LifecycleOwner for Background Traps)     │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
-                         ┌──────────┴──────────┐
-                         │ Navigation Host /   │
-                         │   M3 Scaffold Bar   │
-                         └──────────┬──────────┘
-        ┌───────────────────┬───────┴───────────┬──────────────────┐
-        ▼                   ▼                   ▼                  ▼
-┌──────────────┐    ┌──────────────┐    ┌──────────────┐   ┌──────────────┐
-│ The Forest   │    │ Focus Timer  │    │ Syllabus     │   │ Analytics &  │
-│ (Dashboard)  │    │ Screen       │    │ Tracker      │   │ Shop Screen  │
-└───────┬──────┘    └───────┬──────┘    └───────┬──────┘   └──────┬───────┘
-        │                   │                   │                 │
-        └───────────────────┴─────────┬─────────┴─────────────────┘
-                                      ▼
-                        ┌───────────────────────────┐
-                        │      FocusGroveViewModel  │
-                        │  (StateFlow, Timer Logic, │
-                        │   Audio Player, Economy)  │
-                        └─────────────┬─────────────┘
-                                      ▼
-                        ┌───────────────────────────┐
-                        │    FocusGroveRepository   │
-                        └─────────────┬─────────────┘
-                                      ▼
-                        ┌───────────────────────────┐
-                        │       Room Database       │
-                        │ ├─ TreeDao                │
-                        │ ├─ SyllabusDao            │
-                        │ └─ EconomyDao             │
-                        └───────────────────────────┘
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                             FocusGroveApp                              │
+│         LifecycleObserver: Retains timer on ON_STOP (No Kill)          │
+└───────┬───────────────────────────┼────────────────────────────┬───────┘
+        │                           │                            │
+        ▼                           ▼                            ▼
+┌───────────────────┐     ┌───────────────────┐     ┌────────────────────┐
+│    TimerScreen    │     │ StudyToolsScreen  │     │  Forest / Syllabus │
+└─────────┬─────────┘     └─────────┬─────────┘     └────────────────────┘
+          │                         │
+          │                         ├─── Tab 0: QuizView (Existing Engine)
+          │                         ├─── Tab 1: FlashcardsView (3D Flip)
+          │                         └─── Tab 2: MindMapView (Pan/Zoom Canvas)
+          │
+          ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                           MainViewModel                                │
+│       State: remainingSeconds, timerStatus, flashcards, mindMap        │
+└─────────┬─────────────────────────────────────────────────┬────────────┘
+          │                                                 │
+          ▼                                                 ▼
+┌───────────────────┐                             ┌──────────────────────┐
+│ FocusTimerService │                             │   FocusGroveDatabase │
+│ Ongoing Lockscreen│                             │   (Room Persistence) │
+│    Notification   │                             └──────────────────────┘
+└───────────────────┘
 ```
 
-### Data Entities & Schema
+### Data Models & JSON Schemas
 
-1. **`TreeRecord`**:
-   - `id: Long` (Primary Key auto-generated)
-   - `species: String` (OAK, PINE, CHERRY_BLOSSOM, BONSAI)
-   - `status: String` (ALIVE, DEAD)
-   - `subjectTag: String` (e.g., "Physics", "Chemistry")
-   - `durationSeconds: Int` (e.g., 1800)
-   - `timestamp: Long`
+1. **Flashcard Models**:
+```kotlin
+data class FlashcardItem(val front: String, val back: String)
+data class FlashcardDeck(val chapter: String, val cards: List<FlashcardItem>)
+```
+*AI Prompt Schema*:
+```json
+{
+  "chapter": "String",
+  "cards": [
+    { "front": "Question", "back": "Answer" }
+  ]
+}
+```
 
-2. **`ChapterProgress`**:
-   - `id: String` (Primary Key: "Subject_ChapterName")
-   - `subject: String`
-   - `chapterName: String`
-   - `isCompleted: Boolean`
-   - `orderIndex: Int`
+2. **Mind Map Models**:
+```kotlin
+data class MindMapNode(
+    val title: String,
+    val children: List<MindMapNode> = emptyList()
+)
+data class MindMapData(
+    val chapter: String,
+    val root: MindMapNode
+)
+```
+*AI Prompt Schema*:
+```json
+{
+  "chapter": "String",
+  "root": {
+    "title": "Topic",
+    "children": [
+      { "title": "Sub", "children": [] }
+    ]
+  }
+}
+```
 
-3. **`UserEconomy`**:
-   - `id: Int = 1` (Single row)
-   - `coins: Int` (Default 0, +10 on alive tree)
-   - `selectedTreeSpecies: String`
-   - `unlockedItemsJson: String` (Set of item IDs)
-   - `demoModeEnabled: Boolean`
-
----
-
-## Verification Plan
-
-1. **Automated JVM Tests**: Unit test Room DAOs, Timer calculations, and Economy coin logic with Robolectric and Kotlin Coroutines Test.
-2. **Interactive UI Verification**:
-   - Test starting timer with Demo Mode and letting it finish -> verify green tree and +10 coins added.
-   - Test "Give Up" button -> verify grey dead tree saved.
-   - Test backgrounding the app (`ON_STOP`) during active timer -> verify tree dies.
-   - Test syllabus checkbox toggling -> verify overall and per-subject progress bar updates.
-   - Test Shop purchasing of Cherry Blossom, Pine, and ambient sound -> verify coin deduction and equipping.
-3. **Compilation**: Verify build with `compile_applet`.
+### Safety & Error Handling Strategy
+- Ingestion methods (`loadFlashcardsFromJson`, `loadMindMapFromJson`) sanitize markdown code fences (```json ... ```) before parsing.
+- Nested `try-catch` catches `JSONException`, syntax errors, or null fields, displaying an explicit Toast/Snackbar: *"Invalid JSON format. Please try again."*
+- Zero app crashes or state corruption on bad input.
