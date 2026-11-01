@@ -18,6 +18,8 @@ import com.example.data.model.ResourceEntity
 import com.example.data.model.ScheduleEventEntity
 import com.example.data.model.UserProfileEntity
 
+import com.example.data.model.SavedFlashcardDeckEntity
+
 @Database(
     entities = [
         TreeRecord::class,
@@ -26,9 +28,10 @@ import com.example.data.model.UserProfileEntity
         QuizResultEntity::class,
         ScheduleEventEntity::class,
         ResourceEntity::class,
-        UserProfileEntity::class
+        UserProfileEntity::class,
+        SavedFlashcardDeckEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class FocusGroveDatabase : RoomDatabase() {
@@ -39,6 +42,7 @@ abstract class FocusGroveDatabase : RoomDatabase() {
     abstract fun scheduleDao(): ScheduleDao
     abstract fun resourceDao(): ResourceDao
     abstract fun userProfileDao(): UserProfileDao
+    abstract fun flashcardDao(): FlashcardDao
 
     companion object {
         @Volatile

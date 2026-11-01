@@ -1113,5 +1113,17 @@ fun TimerScreen(
                 }
             )
         }
+
+        // Floating Companion Pet
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp)
+        ) {
+            com.example.ui.components.FloatingEquippedPet(
+                petSpeciesId = economy?.equippedPet ?: "DUCK",
+                quotes = viewModel.motivationalQuotes
+            )
+        }
     }
 }

@@ -39,6 +39,9 @@ import com.example.data.model.FlashcardItem
 import com.example.data.model.MindMapData
 import com.example.data.model.MindMapNode
 import com.example.data.model.StudyToolParser
+import com.example.data.model.PetSpecies
+import com.example.data.model.SavedFlashcardDeckEntity
+import com.example.data.model.WrongQuizAnswer
 import com.example.service.FocusTimerService
 import com.example.audio.SoundEffectManager
 import com.example.ui.notification.TimerNotificationManager
@@ -77,7 +80,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         quizDao = database.quizDao(),
         scheduleDao = database.scheduleDao(),
         resourceDao = database.resourceDao(),
-        userProfileDao = database.userProfileDao()
+        userProfileDao = database.userProfileDao(),
+        flashcardDao = database.flashcardDao()
     )
 
     val soundEffectManager = SoundEffectManager(application)
@@ -407,6 +411,130 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearStudyToolError() {
         _studyToolErrorMessage.value = null
+    }
+
+    val savedFlashcardDecks: StateFlow<List<SavedFlashcardDeckEntity>> = repository.allSavedDecks
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _wrongQuizAnswers = MutableStateFlow<List<WrongQuizAnswer>>(emptyList())
+    val wrongQuizAnswers: StateFlow<List<WrongQuizAnswer>> = _wrongQuizAnswers.asStateFlow()
+
+    fun saveCurrentFlashcardDeck(folderName: String, onComplete: ((Boolean) -> Unit)? = null) {
+        val currentDeck = _flashcardDeck.value ?: run {
+            onComplete?.invoke(false)
+            return
+        }
+        val cleanFolderName = folderName.ifBlank { currentDeck.chapter }
+        val cardsJson = org.json.JSONObject().apply {
+            put("chapter", currentDeck.chapter)
+            val arr = org.json.JSONArray()
+            currentDeck.cards.forEach { c ->
+                arr.put(org.json.JSONObject().apply {
+                    put("front", c.front)
+                    put("back", c.back)
+                })
+            }
+            put("cards", arr)
+        }.toString()
+
+        viewModelScope.launch {
+            val id = repository.saveFlashcardDeck(
+                folderName = cleanFolderName,
+                chapter = currentDeck.chapter,
+                cardsJson = cardsJson,
+                cardCount = currentDeck.cards.size
+            )
+            onComplete?.invoke(id > 0)
+        }
+    }
+
+    fun loadSavedFlashcardDeck(deckEntity: SavedFlashcardDeckEntity) {
+        try {
+            val deck = StudyToolParser.parseFlashcards(deckEntity.cardsJson)
+            _flashcardDeck.value = deck
+            _currentCardIndex.value = 0
+            _studyToolErrorMessage.value = null
+        } catch (_: Exception) {
+            _studyToolErrorMessage.value = "Failed to load saved deck."
+        }
+    }
+
+    fun deleteSavedFlashcardDeck(id: Long) {
+        viewModelScope.launch {
+            repository.deleteFlashcardDeck(id)
+        }
+    }
+
+    fun clearAllSavedFlashcardDecks() {
+        viewModelScope.launch {
+            repository.clearAllFlashcardDecks()
+        }
+    }
+
+    // Plant Hydration & Watering
+    fun waterTree(treeId: Long, onChapterWatered: ((String) -> Unit)? = null) {
+        val tree = trees.value.find { it.id == treeId }
+        viewModelScope.launch {
+            repository.waterTree(treeId)
+            soundEffectManager.playUiClick()
+            if (tree != null && tree.chapterTag.isNotBlank()) {
+                onChapterWatered?.invoke(tree.chapterTag)
+            }
+        }
+    }
+
+    fun waterAllTrees() {
+        viewModelScope.launch {
+            repository.waterAllTrees()
+            soundEffectManager.playUiClick()
+        }
+    }
+
+    // Pet Shop & Equipment
+    fun purchasePet(pet: PetSpecies, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = repository.purchasePet(pet)
+            if (success) {
+                soundEffectManager.playTreeGrownChime()
+            }
+            onResult(success)
+        }
+    }
+
+    fun equipPet(pet: PetSpecies) {
+        viewModelScope.launch {
+            repository.equipPet(pet)
+            soundEffectManager.playUiClick()
+        }
+    }
+
+    fun startRevisionSession(chapter: String) {
+        _timerMode.value = FocusTimerMode.COUNTDOWN
+        _selectedChapter.value = chapter
+        _customMinutes.value = 15
+        _totalDurationSeconds.value = 15 * 60
+        _remainingSeconds.value = 15 * 60
+        _timerStatus.value = TimerStatus.IDLE
+    }
+
+    fun getAiAnalysisPromptForQuiz(): String {
+        val quiz = _activeQuiz.value
+        val chapter = quiz?.chapter ?: _selectedChapter.value
+        val wrongs = _wrongQuizAnswers.value
+        if (wrongs.isEmpty()) {
+            return "I just took a quiz for $chapter and got 100%! Please provide 5 challenging higher-order thinking (HOTS) questions to test advanced conceptual mastery."
+        }
+        val builder = StringBuilder()
+        builder.append("I just took a quiz for $chapter. Here are the questions I got wrong. Please analyze my mistakes and explain the concepts I'm weak in.\n")
+        builder.append("Format:\n")
+        wrongs.forEach { wrong ->
+            builder.append("Question Index: ${wrong.index}\n")
+            builder.append("Question Text: ${wrong.questionText}\n")
+            builder.append("My Wrong Answer: ${wrong.userChoice}\n")
+            builder.append("Correct Answer: ${wrong.correctOption}\n")
+            builder.append("Explanation needed: Please explain why my answer was wrong and what the correct concept is.\n\n")
+        }
+        return builder.toString().trimEnd()
     }
 
     init {
@@ -954,6 +1082,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _isAnswerRevealed.value = false
             _userScore.value = 0
             _isQuizFinished.value = false
+            _wrongQuizAnswers.value = emptyList()
         }
         return result
     }
@@ -972,6 +1101,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             vibrate(100)
         } else {
             vibrate(250)
+            _wrongQuizAnswers.value = _wrongQuizAnswers.value + WrongQuizAnswer(
+                index = _currentQuestionIndex.value + 1,
+                questionText = question.question,
+                userChoice = option,
+                correctOption = question.answer
+            )
         }
     }
 
@@ -1009,6 +1144,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _isAnswerRevealed.value = false
         _userScore.value = 0
         _isQuizFinished.value = false
+        _wrongQuizAnswers.value = emptyList()
     }
 
     // --- Schedule & Calendar Timeline Management ---

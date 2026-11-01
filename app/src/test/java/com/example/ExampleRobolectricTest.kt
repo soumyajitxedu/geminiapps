@@ -24,7 +24,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
+@Config(sdk = [36])
 class ExampleRobolectricTest {
 
     private lateinit var database: FocusGroveDatabase
@@ -43,7 +43,8 @@ class ExampleRobolectricTest {
             quizDao = database.quizDao(),
             scheduleDao = database.scheduleDao(),
             resourceDao = database.resourceDao(),
-            userProfileDao = database.userProfileDao()
+            userProfileDao = database.userProfileDao(),
+            flashcardDao = database.flashcardDao()
         )
     }
 
@@ -452,5 +453,62 @@ class ExampleRobolectricTest {
         // Clean up
         viewModel.resetTimerToIdle()
         assertEquals(com.example.ui.TimerStatus.IDLE, viewModel.timerStatus.value)
+    }
+
+    @Test
+    fun `tree watering restores hydration to 100`() = runTest {
+        repository.checkAndInitializeData()
+        val treeId = repository.recordSession(
+            durationSeconds = 1800,
+            subjectTag = "Mathematics",
+            chapterTag = "Quadratic Equations",
+            status = TreeStatus.ALIVE,
+            species = TreeSpecies.GOLDEN_OAK
+        )
+        // Simulate dehydration
+        database.treeDao().updateTreeHydration(treeId, 35, System.currentTimeMillis())
+        val treeBefore = repository.allTrees.first().find { it.id == treeId }
+        assertEquals(35, treeBefore?.hydrationLevel)
+
+        // Water tree
+        repository.waterTree(treeId)
+        val treeAfter = repository.allTrees.first().find { it.id == treeId }
+        assertEquals(100, treeAfter?.hydrationLevel)
+    }
+
+    @Test
+    fun `pet purchase and equip updates economy`() = runTest {
+        repository.checkAndInitializeData()
+        repository.addCoins(500)
+
+        val success = repository.purchasePet(com.example.data.model.PetSpecies.RABBIT)
+        assertTrue(success)
+
+        val economy = repository.economy.first()
+        assertTrue(economy?.unlockedPets?.contains("RABBIT") == true)
+
+        repository.equipPet(com.example.data.model.PetSpecies.RABBIT)
+        val equippedEconomy = repository.economy.first()
+        assertEquals("RABBIT", equippedEconomy?.equippedPet)
+    }
+
+    @Test
+    fun `save and load flashcard decks in repository`() = runTest {
+        val deckId = repository.saveFlashcardDeck(
+            folderName = "Physics - Force Test",
+            chapter = "Physics - Force",
+            cardsJson = """{"chapter": "Physics - Force", "cards": [{"front": "Q1", "back": "A1"}]}""",
+            cardCount = 1
+        )
+        assertTrue(deckId > 0)
+
+        val decks = repository.allSavedDecks.first()
+        assertEquals(1, decks.size)
+        assertEquals("Physics - Force Test", decks[0].folderName)
+        assertEquals(1, decks[0].cardCount)
+
+        repository.deleteFlashcardDeck(deckId)
+        val decksAfter = repository.allSavedDecks.first()
+        assertTrue(decksAfter.isEmpty())
     }
 }

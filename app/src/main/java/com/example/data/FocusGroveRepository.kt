@@ -25,8 +25,12 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+import com.example.data.local.FlashcardDao
 import com.example.data.local.UserProfileDao
+import com.example.data.model.PetSpecies
+import com.example.data.model.SavedFlashcardDeckEntity
 import com.example.data.model.UserProfileEntity
+import kotlinx.coroutines.flow.flowOf
 
 class FocusGroveRepository(
     private val treeDao: TreeDao,
@@ -35,7 +39,8 @@ class FocusGroveRepository(
     private val quizDao: QuizDao,
     private val scheduleDao: ScheduleDao,
     private val resourceDao: ResourceDao,
-    private val userProfileDao: UserProfileDao
+    private val userProfileDao: UserProfileDao,
+    private val flashcardDao: FlashcardDao? = null
 ) {
     val allTrees: Flow<List<TreeRecord>> = treeDao.getAllTrees()
     val allChapters: Flow<List<ChapterProgress>> = syllabusDao.getAllChapters()
@@ -43,6 +48,7 @@ class FocusGroveRepository(
     val allScheduleEvents: Flow<List<ScheduleEventEntity>> = scheduleDao.getAllEvents()
     val allResources: Flow<List<ResourceEntity>> = resourceDao.getAllResources()
     val userProfile: Flow<UserProfileEntity?> = userProfileDao.getUserProfile()
+    val allSavedDecks: Flow<List<SavedFlashcardDeckEntity>> = flashcardDao?.getAllDecks() ?: flowOf(emptyList())
 
     fun getResourcesBySubject(subject: String): Flow<List<ResourceEntity>> =
         resourceDao.getResourcesBySubject(subject)
@@ -302,6 +308,71 @@ class FocusGroveRepository(
             economyDao.setActiveAmbientSound(itemId)
         }
         true
+    }
+
+    suspend fun purchasePet(pet: PetSpecies): Boolean = withContext(Dispatchers.IO) {
+        val currentEcon = economyDao.getEconomy().firstOrNull() ?: return@withContext false
+        if (currentEcon.coins < pet.cost) return@withContext false
+
+        val currentPets = currentEcon.unlockedPets.split(",").map { it.trim() }.toMutableSet()
+        if (currentPets.contains(pet.id)) return@withContext false
+
+        currentPets.add(pet.id)
+        val newPetsStr = currentPets.joinToString(",")
+        val remainingCoins = currentEcon.coins - pet.cost
+
+        economyDao.setCoins(remainingCoins)
+        economyDao.setUnlockedPets(newPetsStr)
+        economyDao.setEquippedPet(pet.id)
+        true
+    }
+
+    suspend fun equipPet(pet: PetSpecies) = withContext(Dispatchers.IO) {
+        economyDao.setEquippedPet(pet.id)
+    }
+
+    suspend fun waterTree(treeId: Long): Boolean = withContext(Dispatchers.IO) {
+        val currentEcon = economyDao.getEconomy().firstOrNull() ?: return@withContext false
+        val waterCost = 5
+        if (currentEcon.coins >= waterCost) {
+            economyDao.addCoins(-waterCost)
+        }
+        treeDao.updateTreeHydration(treeId, 100, System.currentTimeMillis())
+        true
+    }
+
+    suspend fun waterAllTrees(): Boolean = withContext(Dispatchers.IO) {
+        val currentEcon = economyDao.getEconomy().firstOrNull() ?: return@withContext false
+        val waterCost = 10
+        if (currentEcon.coins >= waterCost) {
+            economyDao.addCoins(-waterCost)
+        }
+        treeDao.waterAllTrees(System.currentTimeMillis())
+        true
+    }
+
+    suspend fun saveFlashcardDeck(
+        folderName: String,
+        chapter: String,
+        cardsJson: String,
+        cardCount: Int
+    ): Long = withContext(Dispatchers.IO) {
+        val entity = SavedFlashcardDeckEntity(
+            folderName = folderName,
+            chapter = chapter,
+            cardsJson = cardsJson,
+            cardCount = cardCount,
+            createdAt = System.currentTimeMillis()
+        )
+        flashcardDao?.insertDeck(entity) ?: 0L
+    }
+
+    suspend fun deleteFlashcardDeck(id: Long) = withContext(Dispatchers.IO) {
+        flashcardDao?.deleteDeckById(id)
+    }
+
+    suspend fun clearAllFlashcardDecks() = withContext(Dispatchers.IO) {
+        flashcardDao?.clearAllDecks()
     }
 
     suspend fun setSelectedSpecies(species: TreeSpecies) = withContext(Dispatchers.IO) {

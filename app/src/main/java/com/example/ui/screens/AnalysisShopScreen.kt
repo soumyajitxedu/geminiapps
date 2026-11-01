@@ -98,6 +98,10 @@ fun AnalysisShopScreen(
     }
     val selectedSpecies = TreeSpecies.fromId(economy?.selectedSpecies ?: "OAK")
     val activeSound = AmbientSound.fromId(economy?.activeAmbientSound ?: "NONE")
+    val unlockedPetsSet = remember(economy?.unlockedPets) {
+        economy?.unlockedPets?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DUCK")
+    }
+    val equippedPetId = economy?.equippedPet ?: "DUCK"
 
     val survivalRate = if (totalCount > 0) {
         ((aliveCount.toFloat() / totalCount.toFloat()) * 100).toInt()
@@ -667,6 +671,141 @@ fun AnalysisShopScreen(
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text("${species.cost} Coins", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Section: Grove Companion Pets
+                item {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(
+                        text = "Grove Companion Pets",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+
+                items(com.example.data.model.PetSpecies.entries.size) { index ->
+                    val pet = com.example.data.model.PetSpecies.entries[index]
+                    val isUnlocked = unlockedPetsSet.contains(pet.id.uppercase())
+                    val isEquipped = equippedPetId.equals(pet.id, ignoreCase = true)
+
+                    ElevatedCard(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("shop_pet_${pet.id.lowercase()}"),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = if (isEquipped) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                            } else {
+                                MaterialTheme.colorScheme.surface
+                            }
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(72.dp)
+                                    .background(MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f), RoundedCornerShape(12.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(modifier = Modifier.size(54.dp)) {
+                                    when (pet) {
+                                        com.example.data.model.PetSpecies.DUCK -> com.example.ui.components.PixelDuckCanvas(isFacingRight = true, legStep = false)
+                                        com.example.data.model.PetSpecies.RABBIT -> com.example.ui.components.PixelRabbitCanvas(isFacingRight = true, legStep = false)
+                                        com.example.data.model.PetSpecies.SHEEP -> com.example.ui.components.PixelSheepCanvas(isFacingRight = true, legStep = false)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = "${pet.emoji} ${pet.displayName}",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                    )
+                                }
+                                Text(
+                                    text = pet.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                when {
+                                    isEquipped -> {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.primary
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = Color.White,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text(
+                                                    text = "Equipped Companion",
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = Color.White,
+                                                        fontWeight = FontWeight.Bold
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                    isUnlocked -> {
+                                        OutlinedButton(
+                                            onClick = { viewModel.equipPet(pet) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) {
+                                            Text("Equip", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    else -> {
+                                        Button(
+                                            onClick = {
+                                                viewModel.purchasePet(pet) { success ->
+                                                    if (success) {
+                                                        Toast.makeText(context, "Unlocked ${pet.displayName}!", Toast.LENGTH_SHORT).show()
+                                                    } else {
+                                                        Toast.makeText(context, "Not enough coins! Need ${pet.cost} coins.", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = MaterialTheme.colorScheme.secondary
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.MonetizationOn,
+                                                contentDescription = null,
+                                                tint = CoinGold,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text("${pet.cost} Coins", fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }

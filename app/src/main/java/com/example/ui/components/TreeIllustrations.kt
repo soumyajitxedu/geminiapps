@@ -23,13 +23,16 @@ fun TreeCanvas(
     species: TreeSpecies,
     isDead: Boolean,
     modifier: Modifier = Modifier,
-    growthProgress: Float = 1f
+    growthProgress: Float = 1f,
+    hydrationLevel: Int = 100
 ) {
     val animatedGrowth by animateFloatAsState(
         targetValue = growthProgress.coerceIn(0.05f, 1f),
         animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
         label = "growthProgress"
     )
+
+    val isDehydrated = hydrationLevel < 50
 
     Box(
         modifier = modifier,
@@ -65,8 +68,19 @@ fun TreeCanvas(
                             TreeSpecies.CHERRY_BLOSSOM -> drawPixelCherryBlossomTree(w, h, matureScale)
                             TreeSpecies.PINE -> drawPixelPineTree(w, h, matureScale)
                             TreeSpecies.BONSAI -> drawPixelBonsaiTree(w, h, matureScale)
+                            TreeSpecies.GOLDEN_OAK -> drawPixelGoldenOakTree(w, h, matureScale)
+                            TreeSpecies.SAKURA -> drawPixelSakuraTree(w, h, matureScale)
+                            TreeSpecies.CRYSTAL_PINE -> drawPixelCrystalPineTree(w, h, matureScale)
                         }
                     }
+                }
+
+                // If dehydrated, draw a subtle arid dust tint overlay to show dehydration
+                if (isDehydrated) {
+                    drawRect(
+                        color = Color(0xFF8D6E63).copy(alpha = 0.35f),
+                        size = size
+                    )
                 }
             }
         }
@@ -509,4 +523,123 @@ fun PixelArtEmblem(
         drawPixelBlock(3f, 3f, cols, rows, Color(0xFFFFD166), w, h, spanX = 1f, spanY = 1f)
         drawPixelBlock(12f, 4f, cols, rows, Color(0xFFFFD166), w, h, spanX = 1f, spanY = 1f)
     }
+}
+
+// STAGE 4: Fully Grown Golden Oak Tree (Rare)
+private fun DrawScope.drawPixelGoldenOakTree(w: Float, h: Float, scale: Float) {
+    val cols = 32f
+    val rows = 32f
+
+    // Shimmering Golden Soil
+    for (x in 6..25) {
+        drawPixelBlock(x.toFloat(), 28f, cols, rows, Color(0xFF6B4D20), w, h)
+        drawPixelBlock(x.toFloat(), 27f, cols, rows, Color(0xFFD4AF37), w, h)
+    }
+
+    // Rich Mahogany Trunk
+    for (y in 17..26) {
+        drawPixelBlock(14f, y.toFloat(), cols, rows, Color(0xFF422206), w, h, spanX = 4f)
+        drawPixelBlock(15f, y.toFloat(), cols, rows, Color(0xFF633309), w, h, spanX = 2f)
+    }
+
+    // Radiant Golden Canopy
+    val goldDeep = Color(0xFFB8860B)
+    val goldMid = Color(0xFFFFD700)
+    val goldBright = Color(0xFFFFE066)
+    val goldSparkle = Color(0xFFFFFBEA)
+
+    drawPixelBlock(6f, 11f, cols, rows, goldDeep, w, h, spanX = 20f, spanY = 7f)
+    drawPixelBlock(8f, 8f, cols, rows, goldDeep, w, h, spanX = 16f, spanY = 10f)
+
+    drawPixelBlock(7f, 10f, cols, rows, goldMid, w, h, spanX = 18f, spanY = 6f)
+    drawPixelBlock(9f, 6f, cols, rows, goldMid, w, h, spanX = 14f, spanY = 10f)
+
+    drawPixelBlock(8f, 9f, cols, rows, goldBright, w, h, spanX = 6f, spanY = 5f)
+    drawPixelBlock(18f, 9f, cols, rows, goldBright, w, h, spanX = 6f, spanY = 5f)
+    drawPixelBlock(11f, 5f, cols, rows, goldBright, w, h, spanX = 10f, spanY = 6f)
+
+    // Twinkling Golden Glints
+    drawPixelBlock(12f, 4f, cols, rows, goldSparkle, w, h, spanX = 2f, spanY = 2f)
+    drawPixelBlock(9f, 8f, cols, rows, goldSparkle, w, h, spanX = 2f, spanY = 2f)
+    drawPixelBlock(20f, 7f, cols, rows, goldSparkle, w, h, spanX = 2f, spanY = 2f)
+}
+
+// STAGE 4: Fully Grown Kyoto Sakura Tree (Rare)
+private fun DrawScope.drawPixelSakuraTree(w: Float, h: Float, scale: Float) {
+    val cols = 32f
+    val rows = 32f
+
+    // Fallen Petals Grass
+    for (x in 6..25) {
+        drawPixelBlock(x.toFloat(), 28f, cols, rows, Color(0xFFF48FB1), w, h)
+        drawPixelBlock(x.toFloat(), 27f, cols, rows, Color(0xFFFCE4EC), w, h)
+    }
+
+    // Curved Trunk
+    for (y in 16..26) {
+        drawPixelBlock(14f, y.toFloat(), cols, rows, Color(0xFF3E2723), w, h, spanX = 3f)
+        drawPixelBlock(15f, y.toFloat(), cols, rows, Color(0xFF5D4037), w, h, spanX = 2f)
+    }
+    drawPixelBlock(10f, 15f, cols, rows, Color(0xFF3E2723), w, h, spanX = 4f, spanY = 2f)
+    drawPixelBlock(17f, 14f, cols, rows, Color(0xFF3E2723), w, h, spanX = 5f, spanY = 2f)
+
+    // Vivid Sakura Magenta-Pink Canopy
+    val sakuraDeep = Color(0xFFC2185B)
+    val sakuraMid = Color(0xFFE91E63)
+    val sakuraLight = Color(0xFFF06292)
+    val sakuraWhite = Color(0xFFFFF0F5)
+
+    drawPixelBlock(5f, 9f, cols, rows, sakuraDeep, w, h, spanX = 22f, spanY = 8f)
+    drawPixelBlock(7f, 6f, cols, rows, sakuraMid, w, h, spanX = 18f, spanY = 9f)
+    drawPixelBlock(9f, 4f, cols, rows, sakuraLight, w, h, spanX = 14f, spanY = 8f)
+
+    // Falling Sakura Blossom Petals
+    drawPixelBlock(11f, 3f, cols, rows, sakuraWhite, w, h, spanX = 3f, spanY = 2f)
+    drawPixelBlock(17f, 5f, cols, rows, sakuraWhite, w, h, spanX = 3f, spanY = 2f)
+    drawPixelBlock(4f, 17f, cols, rows, sakuraLight, w, h, spanX = 1f, spanY = 1f)
+    drawPixelBlock(26f, 19f, cols, rows, sakuraLight, w, h, spanX = 1f, spanY = 1f)
+}
+
+// STAGE 4: Fully Grown Crystal Pine Tree (Rare)
+private fun DrawScope.drawPixelCrystalPineTree(w: Float, h: Float, scale: Float) {
+    val cols = 32f
+    val rows = 32f
+
+    // Frosted Snow Base
+    for (x in 7..24) {
+        drawPixelBlock(x.toFloat(), 28f, cols, rows, Color(0xFF90CAF9), w, h)
+        drawPixelBlock(x.toFloat(), 27f, cols, rows, Color(0xFFE3F2FD), w, h)
+    }
+
+    // Frosted Trunk
+    for (y in 21..26) {
+        drawPixelBlock(15f, y.toFloat(), cols, rows, Color(0xFF37474F), w, h, spanX = 2f)
+    }
+
+    // Multi-tiered Crystalline Ice Needle Layers
+    val iceDeep = Color(0xFF1565C0)
+    val iceMid = Color(0xFF29B6F6)
+    val iceBright = Color(0xFF80DEEA)
+    val iceFrost = Color(0xFFFFFFFF)
+
+    // Tier 1 (Bottom Tier)
+    drawPixelBlock(8f, 19f, cols, rows, iceDeep, w, h, spanX = 16f, spanY = 3f)
+    drawPixelBlock(9f, 17f, cols, rows, iceMid, w, h, spanX = 14f, spanY = 3f)
+    drawPixelBlock(10f, 16f, cols, rows, iceBright, w, h, spanX = 12f, spanY = 2f)
+
+    // Tier 2 (Middle Tier)
+    drawPixelBlock(10f, 14f, cols, rows, iceDeep, w, h, spanX = 12f, spanY = 3f)
+    drawPixelBlock(11f, 12f, cols, rows, iceMid, w, h, spanX = 10f, spanY = 3f)
+    drawPixelBlock(12f, 11f, cols, rows, iceBright, w, h, spanX = 8f, spanY = 2f)
+
+    // Tier 3 (Top Spire)
+    drawPixelBlock(12f, 9f, cols, rows, iceDeep, w, h, spanX = 8f, spanY = 3f)
+    drawPixelBlock(13f, 7f, cols, rows, iceMid, w, h, spanX = 6f, spanY = 3f)
+    drawPixelBlock(14f, 5f, cols, rows, iceBright, w, h, spanX = 4f, spanY = 3f)
+    drawPixelBlock(15f, 3f, cols, rows, iceFrost, w, h, spanX = 2f, spanY = 2f)
+
+    // Diamond ice highlights
+    drawPixelBlock(11f, 16f, cols, rows, iceFrost, w, h, spanX = 2f, spanY = 1f)
+    drawPixelBlock(19f, 18f, cols, rows, iceFrost, w, h, spanX = 2f, spanY = 1f)
+    drawPixelBlock(13f, 11f, cols, rows, iceFrost, w, h, spanX = 2f, spanY = 1f)
 }

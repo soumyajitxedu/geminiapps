@@ -32,4 +32,10 @@ interface EconomyDao {
 
     @Query("UPDATE economy SET activeAmbientSound = :sound WHERE id = 1")
     suspend fun setActiveAmbientSound(sound: String)
+
+    @Query("UPDATE economy SET unlockedPets = :pets WHERE id = 1")
+    suspend fun setUnlockedPets(pets: String)
+
+    @Query("UPDATE economy SET equippedPet = :pet WHERE id = 1")
+    suspend fun setEquippedPet(pet: String)
 }

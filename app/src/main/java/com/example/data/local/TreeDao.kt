@@ -27,6 +27,12 @@ interface TreeDao {
     @Query("SELECT SUM(durationSeconds) FROM trees WHERE status = 'ALIVE'")
     fun getTotalFocusedSeconds(): Flow<Int?>
 
+    @Query("UPDATE trees SET hydrationLevel = :level, lastWateredTimestamp = :timestamp WHERE id = :treeId")
+    suspend fun updateTreeHydration(treeId: Long, level: Int, timestamp: Long)
+
+    @Query("UPDATE trees SET hydrationLevel = 100, lastWateredTimestamp = :timestamp WHERE status = 'ALIVE'")
+    suspend fun waterAllTrees(timestamp: Long)
+
     @Query("DELETE FROM trees")
     suspend fun clearAll()
 }

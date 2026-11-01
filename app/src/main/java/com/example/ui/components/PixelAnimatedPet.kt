@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,6 +42,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import com.example.data.model.PetSpecies
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -177,7 +187,7 @@ fun PixelAnimatedPet(
 }
 
 @Composable
-private fun PixelDuckCanvas(isFacingRight: Boolean, legStep: Boolean) {
+fun PixelDuckCanvas(isFacingRight: Boolean, legStep: Boolean) {
     Canvas(
         modifier = Modifier
             .size(50.dp)
@@ -219,7 +229,7 @@ private fun PixelDuckCanvas(isFacingRight: Boolean, legStep: Boolean) {
 }
 
 @Composable
-private fun PixelRabbitCanvas(isFacingRight: Boolean, legStep: Boolean) {
+fun PixelRabbitCanvas(isFacingRight: Boolean, legStep: Boolean) {
     Canvas(
         modifier = Modifier
             .size(50.dp)
@@ -259,7 +269,7 @@ private fun PixelRabbitCanvas(isFacingRight: Boolean, legStep: Boolean) {
 }
 
 @Composable
-private fun PixelSheepCanvas(isFacingRight: Boolean, legStep: Boolean) {
+fun PixelSheepCanvas(isFacingRight: Boolean, legStep: Boolean) {
     Canvas(
         modifier = Modifier
             .size(50.dp)
@@ -287,5 +297,93 @@ private fun PixelSheepCanvas(isFacingRight: Boolean, legStep: Boolean) {
 
         drawRect(skin, topLeft = Offset(12.dp.toPx(), leg1Y), size = Size(3.dp.toPx(), 7.dp.toPx()))
         drawRect(skin, topLeft = Offset(26.dp.toPx(), leg2Y), size = Size(3.dp.toPx(), 7.dp.toPx()))
+    }
+}
+
+@Composable
+fun FloatingEquippedPet(
+    petSpeciesId: String,
+    quotes: List<String>,
+    modifier: Modifier = Modifier
+) {
+    if (petSpeciesId.equals("NONE", ignoreCase = true) || petSpeciesId.isBlank()) return
+
+    val petSpecies = PetSpecies.fromId(petSpeciesId)
+    var showSpeechBubble by remember { mutableStateOf(false) }
+    var currentQuote by remember { mutableStateOf(quotes.firstOrNull() ?: "Keep focusing! 🌟") }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "floatingPet")
+    val floatY by infiniteTransition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatY"
+    )
+    val floatX by infiniteTransition.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "floatX"
+    )
+
+    Column(
+        modifier = modifier
+            .offset(x = floatX.dp, y = floatY.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AnimatedVisibility(
+            visible = showSpeechBubble,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surface,
+                shadowElevation = 6.dp,
+                border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary),
+                modifier = Modifier
+                    .widthIn(max = 220.dp)
+                    .padding(bottom = 6.dp)
+                    .clickable { showSpeechBubble = false }
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = petSpecies.emoji, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = currentQuote,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    )
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(54.dp)
+                .clip(CircleShape)
+                .clickable {
+                    currentQuote = quotes.randomOrNull() ?: "You've got this! Keep going!"
+                    showSpeechBubble = !showSpeechBubble
+                }
+                .testTag("floating_equipped_pet")
+        ) {
+            when (petSpecies) {
+                PetSpecies.DUCK -> PixelDuckCanvas(isFacingRight = true, legStep = false)
+                PetSpecies.RABBIT -> PixelRabbitCanvas(isFacingRight = true, legStep = false)
+                PetSpecies.SHEEP -> PixelSheepCanvas(isFacingRight = true, legStep = false)
+            }
+        }
     }
 }

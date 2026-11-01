@@ -12,7 +12,10 @@ enum class TreeSpecies(
     OAK("OAK", "Classic Oak", 0, "A sturdy, time-tested forest monarch"),
     CHERRY_BLOSSOM("CHERRY_BLOSSOM", "Cherry Blossom", 50, "Delicate pink petals celebrating sweet focus"),
     PINE("PINE", "Alpine Pine", 100, "Evergreen resilience through stormy distractions"),
-    BONSAI("BONSAI", "Zen Bonsai", 150, "Meticulous cultivation of deep inner discipline");
+    BONSAI("BONSAI", "Zen Bonsai", 150, "Meticulous cultivation of deep inner discipline"),
+    GOLDEN_OAK("GOLDEN_OAK", "Golden Oak", 200, "Mythical tree crowned in shimmering gold foliage"),
+    SAKURA("SAKURA", "Kyoto Sakura", 250, "Enchanted cherry blossom radiating tranquil spring spirit"),
+    CRYSTAL_PINE("CRYSTAL_PINE", "Crystal Pine", 300, "Frost-glazed crystalline needles glowing with clarity");
 
     companion object {
         fun fromId(id: String): TreeSpecies = entries.find { it.id == id } ?: OAK
@@ -29,6 +32,22 @@ enum class FocusTimerMode {
     STOPWATCH
 }
 
+enum class PetSpecies(
+    val id: String,
+    val displayName: String,
+    val cost: Int,
+    val emoji: String,
+    val description: String
+) {
+    DUCK("DUCK", "Pip the Duck", 50, "🦆", "A cheerful companion splashing encouragement"),
+    SHEEP("SHEEP", "Woolly the Sheep", 100, "🐑", "Soft, calm, and fluffy deep-work buddy"),
+    RABBIT("RABBIT", "Hops the Rabbit", 150, "🐇", "Quick, nimble, and leaps past distractions");
+
+    companion object {
+        fun fromId(id: String): PetSpecies = entries.find { it.id.equals(id, ignoreCase = true) } ?: DUCK
+    }
+}
+
 @Entity(tableName = "trees")
 data class TreeRecord(
     @PrimaryKey(autoGenerate = true)
@@ -38,7 +57,9 @@ data class TreeRecord(
     val subjectTag: String = "General Focus",
     val chapterTag: String = "",
     val durationSeconds: Int = 1800,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val hydrationLevel: Int = 100,
+    val lastWateredTimestamp: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "chapters")
@@ -97,7 +118,9 @@ data class UserEconomy(
     val selectedSpecies: String = TreeSpecies.OAK.id,
     val unlockedItems: String = "OAK", // Comma-separated list of unlocked IDs
     val demoModeEnabled: Boolean = false,
-    val activeAmbientSound: String = "NONE" // NONE, RAIN, LOFI
+    val activeAmbientSound: String = "NONE", // NONE, RAIN, LOFI
+    val unlockedPets: String = "DUCK", // Comma-separated (DUCK, SHEEP, RABBIT)
+    val equippedPet: String = "DUCK" // Currently equipped pet ID or "NONE"
 )
 
 @Entity(tableName = "quiz_results")
@@ -178,6 +201,24 @@ data class UserProfileEntity(
     val usePixelFont: Boolean = true,
     val currentStreak: Int = 0,
     val lastActiveDate: String = "" // "yyyy-MM-dd"
+)
+
+@Entity(tableName = "saved_flashcard_decks")
+data class SavedFlashcardDeckEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+    val folderName: String,
+    val chapter: String,
+    val cardsJson: String,
+    val cardCount: Int,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+data class WrongQuizAnswer(
+    val index: Int,
+    val questionText: String,
+    val userChoice: String,
+    val correctOption: String
 )
 
 

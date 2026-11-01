@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
@@ -94,6 +95,7 @@ fun ForestScreen(
 
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, ALIVE, DEAD
     var inspectedTree by remember { mutableStateOf<TreeRecord?>(null) }
+    var revisionPromptChapter by remember { mutableStateOf<String?>(null) }
 
     val filteredTrees = remember(trees, selectedFilter) {
         when (selectedFilter) {
@@ -456,36 +458,43 @@ fun ForestScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Filter Chips Row
+                    // Filter Chips Row & Water All Action
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        FilterChip(
-                            selected = selectedFilter == "ALL",
-                            onClick = { selectedFilter = "ALL" },
-                            label = { Text("All Trees (${trees.size})") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            FilterChip(
+                                selected = selectedFilter == "ALL",
+                                onClick = { selectedFilter = "ALL" },
+                                label = { Text("All (${trees.size})") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
                             )
-                        )
-                        FilterChip(
-                            selected = selectedFilter == "ALIVE",
-                            onClick = { selectedFilter = "ALIVE" },
-                            label = { Text("Lush (${trees.count { it.status == TreeStatus.ALIVE.name }})") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                            FilterChip(
+                                selected = selectedFilter == "ALIVE",
+                                onClick = { selectedFilter = "ALIVE" },
+                                label = { Text("Lush (${trees.count { it.status == TreeStatus.ALIVE.name }})") },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer
+                                )
                             )
-                        )
-                        FilterChip(
-                            selected = selectedFilter == "DEAD",
-                            onClick = { selectedFilter = "DEAD" },
-                            label = { Text("Graveyard (${trees.count { it.status == TreeStatus.DEAD.name }})") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant
-                            )
-                        )
+                        }
+
+                        Button(
+                            onClick = { viewModel.waterAllTrees() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+                            shape = RoundedCornerShape(20.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier.testTag("water_all_trees_button")
+                        ) {
+                            Text("💧 Water All", fontSize = 12.sp, color = Color.White, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
@@ -591,6 +600,7 @@ fun ForestScreen(
                                     species = species,
                                     isDead = isDead,
                                     growthProgress = 1f,
+                                    hydrationLevel = tree.hydrationLevel,
                                     modifier = Modifier.size(72.dp)
                                 )
                             }
@@ -611,6 +621,16 @@ fun ForestScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1
                                 )
+                                if (!isDead) {
+                                    Text(
+                                        text = "💧 ${tree.hydrationLevel}%",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (tree.hydrationLevel < 40) Color(0xFFE65100) else Color(0xFF0288D1)
+                                        )
+                                    )
+                                }
                             }
                         }
                     }
@@ -629,12 +649,17 @@ fun ForestScreen(
                 onDismissRequest = { inspectedTree = null },
                 icon = {
                     Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
-                        TreeCanvas(species = species, isDead = isDead, modifier = Modifier.size(76.dp))
+                        TreeCanvas(
+                            species = species,
+                            isDead = isDead,
+                            hydrationLevel = tree.hydrationLevel,
+                            modifier = Modifier.size(76.dp)
+                        )
                     }
                 },
                 title = {
                     Text(
-                        text = if (isDead) "Withered Tree" else "${species.displayName} in Full Bloom",
+                        text = if (isDead) "Withered Tree" else "${species.displayName} in Bloom",
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         color = if (isDead) DeadTreeDark else ForestGreenPrimary
                     )
@@ -661,6 +686,15 @@ fun ForestScreen(
                                 color = MaterialTheme.colorScheme.primary
                             )
                         }
+                        if (!isDead) {
+                            Text(
+                                text = "• Hydration: ${tree.hydrationLevel}%",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (tree.hydrationLevel < 40) Color(0xFFE65100) else Color(0xFF0288D1)
+                                )
+                            )
+                        }
                         Text(
                             text = "• Duration: ${tree.durationSeconds / 60}m ${tree.durationSeconds % 60}s",
                             style = MaterialTheme.typography.bodySmall
@@ -672,10 +706,80 @@ fun ForestScreen(
                     }
                 },
                 confirmButton = {
-                    TextButton(onClick = { inspectedTree = null }) {
-                        Text("Close")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (!isDead && tree.hydrationLevel < 100) {
+                            Button(
+                                onClick = {
+                                    val chTag = tree.chapterTag
+                                    viewModel.waterTree(tree.id)
+                                    inspectedTree = null
+                                    if (chTag.isNotBlank()) {
+                                        revisionPromptChapter = chTag
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0288D1)),
+                                modifier = Modifier.testTag("water_plant_button")
+                            ) {
+                                Text("💧 Water Plant")
+                            }
+                        }
+                        TextButton(onClick = { inspectedTree = null }) {
+                            Text("Close")
+                        }
                     }
                 }
+            )
+        }
+
+        // Revision Prompt Dialog
+        revisionPromptChapter?.let { chapterName ->
+            AlertDialog(
+                onDismissRequest = { revisionPromptChapter = null },
+                icon = {
+                    Text("🌱", fontSize = 36.sp)
+                },
+                title = {
+                    Text(
+                        text = "Time for Revision!",
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                },
+                text = {
+                    Text(
+                        text = "You haven't revised $chapterName in a while. Want to plant a 15-minute focus seed now?",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            viewModel.startRevisionSession(chapterName)
+                            revisionPromptChapter = null
+                            onNavigateToTimer()
+                        },
+                        modifier = Modifier.testTag("accept_revision_seed_button")
+                    ) {
+                        Text("Yes, Plant Seed 🌱", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { revisionPromptChapter = null }) {
+                        Text("Maybe Later")
+                    }
+                }
+            )
+        }
+
+        // Floating Companion Pet
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 16.dp, bottom = 16.dp)
+        ) {
+            com.example.ui.components.FloatingEquippedPet(
+                petSpeciesId = economy?.equippedPet ?: "DUCK",
+                quotes = viewModel.motivationalQuotes
             )
         }
 

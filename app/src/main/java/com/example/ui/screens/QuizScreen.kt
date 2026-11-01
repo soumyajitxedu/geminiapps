@@ -233,7 +233,29 @@ fun QuizScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(28.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Button(
+                        onClick = {
+                            val analysisPrompt = viewModel.getAiAnalysisPromptForQuiz()
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            val clip = ClipData.newPlainText("AI Quiz Analysis Prompt", analysisPrompt)
+                            clipboard.setPrimaryClip(clip)
+                            Toast.makeText(context, "AI Analysis Prompt copied to clipboard!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp)
+                            .testTag("btn_generate_ai_analysis"),
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Generate AI Analysis ✨", fontWeight = FontWeight.Bold)
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Button(
                         onClick = { viewModel.resetQuiz() },
