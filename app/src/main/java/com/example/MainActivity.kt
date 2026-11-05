@@ -13,12 +13,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.ui.FocusGroveApp
 import com.example.ui.MainViewModel
 import com.example.ui.theme.FocusGroveTheme
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.RequestConfiguration
 
 class MainActivity : ComponentActivity() {
     private val mainViewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        try {
+            val reqConfig = RequestConfiguration.Builder()
+                .setTestDeviceIds(listOf(AdRequest.DEVICE_ID_EMULATOR))
+                .build()
+            MobileAds.setRequestConfiguration(reqConfig)
+            MobileAds.initialize(this) {}
+        } catch (_: Exception) {}
         enableEdgeToEdge()
         setContent {
             val isDarkTheme by mainViewModel.isDarkTheme.collectAsStateWithLifecycle()

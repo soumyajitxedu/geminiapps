@@ -76,6 +76,7 @@ import java.util.Locale
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.IconButton
 import com.example.ui.components.PixelArtEmblem
+import com.example.ui.components.BannerAdView
 
 @Composable
 fun ForestScreen(
@@ -110,12 +111,17 @@ fun ForestScreen(
     } else 0f
     val syllabusPercent = (syllabusProgress * 100).toInt()
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
     ) {
-        LazyVerticalGrid(
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            LazyVerticalGrid(
             columns = GridCells.Fixed(3),
             contentPadding = PaddingValues(16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -899,5 +905,10 @@ fun ForestScreen(
                 }
             )
         }
-    }
-}
+
+        } // close Box
+
+        // AdMob Banner Ad anchored at the very bottom of Forest screen, right above bottom navigation bar
+        BannerAdView()
+    } // close Column
+} // close fun ForestScreen

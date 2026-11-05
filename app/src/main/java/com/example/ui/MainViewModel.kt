@@ -350,6 +350,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _mindMapData = MutableStateFlow<MindMapData?>(StudyToolParser.getSampleMindMap())
     val mindMapData: StateFlow<MindMapData?> = _mindMapData.asStateFlow()
 
+    private val _mindMapNodeOffsets = MutableStateFlow<Map<String, androidx.compose.ui.geometry.Offset>>(emptyMap())
+    val mindMapNodeOffsets: StateFlow<Map<String, androidx.compose.ui.geometry.Offset>> = _mindMapNodeOffsets.asStateFlow()
+
+    fun updateMindMapNodeOffset(nodeId: String, delta: androidx.compose.ui.geometry.Offset) {
+        val current = _mindMapNodeOffsets.value
+        val existing = current[nodeId] ?: androidx.compose.ui.geometry.Offset.Zero
+        _mindMapNodeOffsets.value = current + (nodeId to (existing + delta))
+    }
+
+    fun resetMindMapNodeOffsets() {
+        _mindMapNodeOffsets.value = emptyMap()
+    }
+
     private val _studyToolErrorMessage = MutableStateFlow<String?>(null)
     val studyToolErrorMessage: StateFlow<String?> = _studyToolErrorMessage.asStateFlow()
 
@@ -370,6 +383,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return try {
             val data = StudyToolParser.parseMindMap(jsonString)
             _mindMapData.value = data
+            resetMindMapNodeOffsets()
             _studyToolErrorMessage.value = null
             true
         } catch (e: Exception) {
@@ -386,6 +400,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadSampleMindMap() {
         _mindMapData.value = StudyToolParser.getSampleMindMap()
+        resetMindMapNodeOffsets()
         _studyToolErrorMessage.value = null
     }
 

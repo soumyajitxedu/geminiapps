@@ -14,7 +14,10 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,11 +31,13 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ArrowBack
@@ -98,13 +103,21 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.IntOffset
+import kotlin.math.roundToInt
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateMapOf
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -738,58 +751,85 @@ fun FlashcardsTabContent(viewModel: MainViewModel) {
 }
 
 // ----------------------------------------------------------------------------
-// TAB 2: INTERACTIVE MIND MAP TAB (MULTI-LAYOUT, NON-OVERLAPPING, EXPANDABLE)
+// TAB 2: INTERACTIVE MIND MAP TAB (COMPOSE BOX/ROW/COLUMN TREE & DRAGGABLE NODES)
 // ----------------------------------------------------------------------------
-enum class MindMapLayoutStyle(val displayName: String) {
-    HIERARCHICAL("Hierarchical (Linear)"),
-    RADIAL("Radial (Spider Web)"),
-    SCATTER("Scatter / Neighbors")
-}
-
-data class RenderedMindMapNode(
-    val id: String,
-    val title: String,
-    val center: Offset,
-    val width: Float,
-    val height: Float,
-    val level: Int,
-    val hasChildren: Boolean,
-    val isExpanded: Boolean,
-    val parentCenter: Offset? = null
+data class MindMapConnection(
+    val parentId: String,
+    val childId: String,
+    val level: Int
 )
 
 @Composable
 fun MindMapTabContent(viewModel: MainViewModel) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val mindMapData by viewModel.mindMapData.collectAsStateWithLifecycle()
+    val nodeOffsets by viewModel.mindMapNodeOffsets.collectAsStateWithLifecycle()
 
     var chapterInput by remember { mutableStateOf("Physics - Force") }
     var jsonInput by remember { mutableStateOf("") }
     var showImportSection by remember { mutableStateOf(false) }
 
-    var selectedLayout by remember { mutableStateOf(MindMapLayoutStyle.HIERARCHICAL) }
-    var showLayoutMenu by remember { mutableStateOf(false) }
+    var zoomScale by remember { mutableFloatStateOf(1.0f) }
+    val hScroll = rememberScrollState(0)
+    val vScroll = rememberScrollState(600)
 
-    var scale by remember { mutableFloatStateOf(1.0f) }
-    var offsetX by remember { mutableFloatStateOf(0f) }
-    var offsetY by remember { mutableFloatStateOf(0f) }
+    // Set of node IDs that are expanded
+    var expandedNodeIds by remember { mutableStateOf<Set<String>>(emptySet()) }
 
-    // Set of node IDs that are expanded; default expands root and first level
-    var expandedNodeIds by remember {
-        mutableStateOf(setOf("root", "node_0", "node_1", "node_2", "node_3", "node_4", "node_5"))
+    // Helper to collect all node IDs
+    fun collectAllNodeIds(node: MindMapNode, currentId: String = "root"): Set<String> {
+        val result = mutableSetOf(currentId)
+        node.children.forEachIndexed { idx, child ->
+            result.addAll(collectAllNodeIds(child, "${currentId}_$idx"))
+        }
+        return result
     }
 
-    val textMeasurer = rememberTextMeasurer()
-    var renderedNodesList by remember { mutableStateOf<List<RenderedMindMapNode>>(emptyList()) }
+    // Auto-expand all nodes when new Mind Map data arrives
+    LaunchedEffect(mindMapData) {
+        val root = mindMapData?.root
+        if (root != null) {
+            expandedNodeIds = collectAllNodeIds(root)
+        }
+    }
 
+    // Copy exact requested 3-layer AI Prompt
     fun copyPrompt() {
         val chapter = chapterInput.ifBlank { "Physics - Force" }
-        val prompt = "Generate a hierarchical mind map for chapter: $chapter. Output strictly valid JSON, no markdown. Schema: {\"chapter\": \"String\", \"root\": {\"title\": \"Topic\", \"children\": [{\"title\": \"Sub\", \"children\": []}]}}."
+        val prompt = "Generate a deep 3-layer hierarchical mind map for the chapter: $chapter. Output strictly valid JSON, no markdown. Include detailed event blocks. Schema: {\"chapter\": \"String\", \"root\": {\"title\": \"Main Topic\", \"children\": [{\"title\": \"Sub Topic 1\", \"children\": [{\"title\": \"Detail A\", \"children\": [{\"title\": \"Deep Detail\"}]}]}]}}."
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("Mind Map Prompt", prompt)
+        val clip = ClipData.newPlainText("Mind Map AI Prompt", prompt)
         clipboard.setPrimaryClip(clip)
-        Toast.makeText(context, "Mind Map AI Prompt copied!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, "3-Layer Mind Map AI Prompt copied!", Toast.LENGTH_SHORT).show()
     }
+
+    // Node base layout centers (tracked on the 3200dp canvas)
+    val nodeBasePositions = remember { mutableStateMapOf<String, Offset>() }
+    var containerCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+
+    // Collect all parent-child connections to draw Bezier lines
+    val rootNode = mindMapData?.root
+    val connections = remember(rootNode, expandedNodeIds) {
+        val list = mutableListOf<MindMapConnection>()
+        fun recurse(node: MindMapNode, currentId: String, level: Int) {
+            if (expandedNodeIds.contains(currentId)) {
+                node.children.forEachIndexed { idx, child ->
+                    val childId = "${currentId}_$idx"
+                    list.add(MindMapConnection(currentId, childId, level + 1))
+                    recurse(child, childId, level + 1)
+                }
+            }
+        }
+        if (rootNode != null) {
+            recurse(rootNode, "root", 0)
+        }
+        list
+    }
+
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val secondaryColor = MaterialTheme.colorScheme.secondary
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant
 
     Column(
         modifier = Modifier
@@ -831,84 +871,58 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Layout style dropdown button
-                    Box {
-                        OutlinedButton(
-                            onClick = { showLayoutMenu = true },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            modifier = Modifier.testTag("mindmap_layout_selector")
-                        ) {
-                            Icon(
-                                imageVector = when (selectedLayout) {
-                                    MindMapLayoutStyle.HIERARCHICAL -> Icons.Default.AccountTree
-                                    MindMapLayoutStyle.RADIAL -> Icons.Default.FilterVintage
-                                    MindMapLayoutStyle.SCATTER -> Icons.Default.Hub
-                                },
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(selectedLayout.displayName, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(Icons.Default.ExpandMore, contentDescription = null, modifier = Modifier.size(16.dp))
-                        }
-
-                        DropdownMenu(
-                            expanded = showLayoutMenu,
-                            onDismissRequest = { showLayoutMenu = false }
-                        ) {
-                            MindMapLayoutStyle.entries.forEach { style ->
-                                DropdownMenuItem(
-                                    text = {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Icon(
-                                                imageVector = when (style) {
-                                                    MindMapLayoutStyle.HIERARCHICAL -> Icons.Default.AccountTree
-                                                    MindMapLayoutStyle.RADIAL -> Icons.Default.FilterVintage
-                                                    MindMapLayoutStyle.SCATTER -> Icons.Default.Hub
-                                                },
-                                                contentDescription = null,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(8.dp))
-                                            Text(style.displayName, fontWeight = if (style == selectedLayout) FontWeight.Bold else FontWeight.Normal)
-                                        }
-                                    },
-                                    onClick = {
-                                        selectedLayout = style
-                                        showLayoutMenu = false
-                                        scale = 1.0f
-                                        offsetX = 0f
-                                        offsetY = 0f
-                                    }
-                                )
-                            }
-                        }
+                    // Paste JSON toggle button
+                    OutlinedButton(
+                        onClick = { showImportSection = !showImportSection },
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.testTag("mindmap_toggle_import")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(if (showImportSection) "Hide JSON" else "Paste JSON", fontSize = 12.sp)
                     }
 
+                    // Canvas Toolbar Controls (Zoom In, Zoom Out, Reset View, Reset Drag Positions)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { showImportSection = !showImportSection }) {
-                            Icon(
-                                imageVector = if (showImportSection) Icons.Default.Done else Icons.Default.AutoAwesome,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(if (showImportSection) "Hide" else "Paste JSON")
+                        // Reset Nodes Dragged Positions
+                        IconButton(
+                            onClick = {
+                                viewModel.resetMindMapNodeOffsets()
+                                Toast.makeText(context, "Node positions reset", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = "Reset Node Positions")
                         }
 
-                        IconButton(onClick = {
-                            scale = 1.0f
-                            offsetX = 0f
-                            offsetY = 0f
-                        }) {
+                        // Reset View & Scroll
+                        IconButton(
+                            onClick = {
+                                zoomScale = 1.0f
+                                coroutineScope.launch {
+                                    hScroll.animateScrollTo(0)
+                                    vScroll.animateScrollTo(600)
+                                }
+                            }
+                        ) {
                             Icon(Icons.Default.CenterFocusStrong, contentDescription = "Reset View")
                         }
-                        IconButton(onClick = { scale = (scale + 0.2f).coerceAtMost(3.0f) }) {
+
+                        // Zoom In
+                        IconButton(
+                            onClick = { zoomScale = (zoomScale + 0.15f).coerceAtMost(2.5f) }
+                        ) {
                             Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
                         }
-                        IconButton(onClick = { scale = (scale - 0.2f).coerceAtLeast(0.4f) }) {
+
+                        // Zoom Out
+                        IconButton(
+                            onClick = { zoomScale = (zoomScale - 0.15f).coerceAtLeast(0.4f) }
+                        ) {
                             Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out")
                         }
                     }
@@ -920,7 +934,7 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                         OutlinedTextField(
                             value = jsonInput,
                             onValueChange = { jsonInput = it },
-                            placeholder = { Text("Paste JSON here: {\"chapter\": \"...\", \"root\": {\"title\": \"...\", \"children\": [...]}}") },
+                            placeholder = { Text("Paste 3-layer JSON here: {\"chapter\": \"...\", \"root\": {\"title\": \"...\", \"children\": [...]}}") },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(100.dp)
@@ -936,7 +950,7 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                                 onClick = { viewModel.loadSampleMindMap() },
                                 modifier = Modifier.padding(end = 8.dp)
                             ) {
-                                Text("Sample Map")
+                                Text("Load Sample 3-Layer Map")
                             }
                             Button(
                                 onClick = {
@@ -945,13 +959,14 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                                     } else {
                                         val success = viewModel.loadMindMapFromJson(jsonInput)
                                         if (success) {
-                                            Toast.makeText(context, "Mind Map Loaded!", Toast.LENGTH_SHORT).show()
+                                            Toast.makeText(context, "3-Layer Mind Map Loaded!", Toast.LENGTH_SHORT).show()
                                             showImportSection = false
                                             jsonInput = ""
-                                            scale = 1.0f
-                                            offsetX = 0f
-                                            offsetY = 0f
-                                            expandedNodeIds = setOf("root", "node_0", "node_1", "node_2", "node_3", "node_4")
+                                            zoomScale = 1.0f
+                                            coroutineScope.launch {
+                                                hScroll.scrollTo(0)
+                                                vScroll.scrollTo(600)
+                                            }
                                         } else {
                                             Toast.makeText(context, "Invalid JSON format. Please try again.", Toast.LENGTH_SHORT).show()
                                         }
@@ -967,176 +982,113 @@ fun MindMapTabContent(viewModel: MainViewModel) {
             }
         }
 
-        // Mind Map Interactive Canvas
-        val rootNode = mindMapData?.root
-        val primaryColor = MaterialTheme.colorScheme.primary
-        val secondaryColor = MaterialTheme.colorScheme.secondary
-        val surfaceColor = MaterialTheme.colorScheme.surface
-        val onSurfaceColor = MaterialTheme.colorScheme.onSurface
-        val outlineColor = MaterialTheme.colorScheme.outlineVariant
-
+        // --------------------------------------------------------------------
+        // Infinite Canvas with horizontalScroll & verticalScroll (3200dp Box)
+        // --------------------------------------------------------------------
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                .pointerInput(renderedNodesList, expandedNodeIds) {
-                    detectTapGestures { tapOffset ->
-                        val tappedNode = renderedNodesList.find { node ->
-                            tapOffset.x in (node.center.x - node.width / 2f)..(node.center.x + node.width / 2f) &&
-                            tapOffset.y in (node.center.y - node.height / 2f)..(node.center.y + node.height / 2f)
-                        }
-                        if (tappedNode != null && tappedNode.hasChildren) {
-                            expandedNodeIds = if (expandedNodeIds.contains(tappedNode.id)) {
-                                expandedNodeIds - tappedNode.id
-                            } else {
-                                expandedNodeIds + tappedNode.id
-                            }
-                        }
-                    }
-                }
-                .pointerInput(Unit) {
-                    detectTransformGestures { _, pan, zoom, _ ->
-                        scale = (scale * zoom).coerceIn(0.4f, 3.0f)
-                        offsetX += pan.x
-                        offsetY += pan.y
-                    }
-                }
+                .horizontalScroll(hScroll)
+                .verticalScroll(vScroll)
                 .testTag("mind_map_canvas_container")
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val canvasCenter = Offset(size.width / 2f + offsetX, size.height / 2f + offsetY)
+            Box(
+                modifier = Modifier
+                    .size(3200.dp, 3200.dp)
+                    .graphicsLayer {
+                        scaleX = zoomScale
+                        scaleY = zoomScale
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    }
+                    .onGloballyPositioned { containerCoords = it }
+            ) {
+                // 1. Background Canvas drawing smooth curved Bezier lines connecting parent to child
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    connections.forEach { conn ->
+                        val base1 = nodeBasePositions[conn.parentId]
+                        val base2 = nodeBasePositions[conn.childId]
+                        if (base1 != null && base2 != null) {
+                            val drag1 = nodeOffsets[conn.parentId] ?: Offset.Zero
+                            val drag2 = nodeOffsets[conn.childId] ?: Offset.Zero
+                            val p1 = base1 + drag1
+                            val p2 = base2 + drag2
 
-                if (rootNode != null) {
-                    val nodesToRender = calculateMindMapLayout(
-                        root = rootNode,
-                        center = canvasCenter,
-                        scale = scale,
-                        layoutStyle = selectedLayout,
-                        expandedNodeIds = expandedNodeIds
-                    )
-                    renderedNodesList = nodesToRender
-
-                    // 1. Draw Curved Bezier Connector Lines
-                    nodesToRender.forEach { node ->
-                        node.parentCenter?.let { pCenter ->
                             val path = Path().apply {
-                                moveTo(pCenter.x, pCenter.y)
-                                when (selectedLayout) {
-                                    MindMapLayoutStyle.HIERARCHICAL -> {
-                                        val ctrl1X = (pCenter.x + node.center.x) / 2f
-                                        cubicTo(ctrl1X, pCenter.y, ctrl1X, node.center.y, node.center.x, node.center.y)
-                                    }
-                                    else -> {
-                                        val midX = (pCenter.x + node.center.x) / 2f
-                                        val midY = (pCenter.y + node.center.y) / 2f
-                                        val dx = node.center.x - pCenter.x
-                                        val dy = node.center.y - pCenter.y
-                                        val dist = kotlin.math.hypot(dx, dy).coerceAtLeast(1f)
-                                        val bend = 16f * scale
-                                        val normX = -dy / dist * bend
-                                        val normY = dx / dist * bend
-                                        quadraticTo(midX + normX, midY + normY, node.center.x, node.center.y)
-                                    }
-                                }
+                                moveTo(p1.x, p1.y)
+                                val midX = (p1.x + p2.x) / 2f
+                                cubicTo(midX, p1.y, midX, p2.y, p2.x, p2.y)
                             }
+
+                            val lineColor = when (conn.level) {
+                                1 -> primaryColor.copy(alpha = 0.85f)
+                                2 -> secondaryColor.copy(alpha = 0.75f)
+                                else -> outlineColor.copy(alpha = 0.7f)
+                            }
+                            val strokeWidth = when (conn.level) {
+                                1 -> 3.dp.toPx()
+                                2 -> 2.2.dp.toPx()
+                                else -> 1.5.dp.toPx()
+                            }
+
                             drawPath(
                                 path = path,
-                                color = if (node.level == 1) secondaryColor.copy(alpha = 0.85f) else outlineColor,
-                                style = Stroke(width = if (node.level == 1) 2.2f * scale else 1.5f * scale, cap = StrokeCap.Round)
+                                color = lineColor,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                             )
                         }
                     }
+                }
 
-                    // 2. Draw Nodes with non-overlapping bounds & expansion badges
-                    nodesToRender.forEach { node ->
-                        val nodeRect = Offset(node.center.x - node.width / 2f, node.center.y - node.height / 2f)
-                        val cornerRadius = CornerRadius(12f * scale, 12f * scale)
-
-                        val bgColor = when (node.level) {
-                            0 -> primaryColor
-                            1 -> surfaceColor
-                            else -> surfaceColor
-                        }
-                        val strokeColor = when (node.level) {
-                            0 -> Color.White.copy(alpha = 0.4f)
-                            1 -> secondaryColor
-                            else -> outlineColor
-                        }
-
-                        // Node background rounded rect
-                        drawRoundRect(
-                            color = bgColor,
-                            topLeft = nodeRect,
-                            size = Size(node.width, node.height),
-                            cornerRadius = cornerRadius
-                        )
-                        drawRoundRect(
-                            color = strokeColor,
-                            topLeft = nodeRect,
-                            size = Size(node.width, node.height),
-                            cornerRadius = cornerRadius,
-                            style = Stroke(width = if (node.level == 0) 2.5f * scale else 1.5f * scale)
-                        )
-
-                        // Title text
-                        val textStyle = TextStyle(
-                            color = if (node.level == 0) Color.White else onSurfaceColor,
-                            fontSize = when (node.level) {
-                                0 -> (12.5f * scale).sp
-                                1 -> (10.5f * scale).sp
-                                else -> (9.5f * scale).sp
+                // 2. Hierarchical Node Layout built strictly from Compose Box, Column, and Row elements
+                if (rootNode != null) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 120.dp, top = 1000.dp)
+                            .wrapContentSize()
+                    ) {
+                        MindMapNodeTree(
+                            node = rootNode,
+                            nodeId = "root",
+                            level = 0,
+                            expandedNodeIds = expandedNodeIds,
+                            onToggleExpand = { id ->
+                                expandedNodeIds = if (expandedNodeIds.contains(id)) {
+                                    expandedNodeIds - id
+                                } else {
+                                    expandedNodeIds + id
+                                }
                             },
-                            fontWeight = if (node.level == 0) FontWeight.Bold else FontWeight.SemiBold,
-                            textAlign = TextAlign.Center
+                            nodeOffsets = nodeOffsets,
+                            onDragNode = { id, delta ->
+                                viewModel.updateMindMapNodeOffset(id, delta)
+                            },
+                            containerCoords = containerCoords,
+                            onPositioned = { id, center ->
+                                val currentDrag = nodeOffsets[id] ?: Offset.Zero
+                                nodeBasePositions[id] = center - currentDrag
+                            }
                         )
-                        val textLayout = textMeasurer.measure(
-                            text = node.title,
-                            style = textStyle,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        val textOffset = Offset(
-                            node.center.x - textLayout.size.width / 2f,
-                            node.center.y - textLayout.size.height / 2f
-                        )
-                        drawText(textLayout, topLeft = textOffset)
-
-                        // If node has children, draw interactive Accordion/Expand indicator badge
-                        if (node.hasChildren) {
-                            val badgeRadius = 7f * scale
-                            val badgeCenter = Offset(node.center.x + node.width / 2f - 4f * scale, node.center.y - node.height / 2f + 4f * scale)
-                            drawCircle(
-                                color = if (node.isExpanded) ForestGreenPrimary else Color(0xFFF57C00),
-                                radius = badgeRadius,
-                                center = badgeCenter
-                            )
-                            val symbol = if (node.isExpanded) "−" else "+"
-                            val badgeText = textMeasurer.measure(
-                                text = symbol,
-                                style = TextStyle(color = Color.White, fontSize = (9f * scale).sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                            )
-                            drawText(badgeText, topLeft = Offset(badgeCenter.x - badgeText.size.width / 2f, badgeCenter.y - badgeText.size.height / 2f))
-                        }
                     }
                 }
             }
 
-            // Legend & Interactive Guidance Banner
+            // Floating Interactive Hint Banner
             Surface(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(14.dp),
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
                 shape = RoundedCornerShape(10.dp),
                 tonalElevation = 3.dp,
                 border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "💡 Tap nodes to expand/collapse subtopics • Pan & zoom freely",
+                        text = "✨ Long-press & drag any node to move • Tap +/− to expand/collapse • Pan & zoom infinite canvas",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -1147,273 +1099,210 @@ fun MindMapTabContent(viewModel: MainViewModel) {
 }
 
 /**
- * Calculates complete non-overlapping node layout for Hierarchical, Radial, and Scatter styles.
+ * Recursive Compose Tree:
+ * Root Node in a Row -> Column of Level 1 nodes (spaced by 32dp) -> Column of Level 2 nodes -> Column of Level 3 nodes.
+ * Automatic non-overlapping layout with completely dynamic node sizing.
  */
-private fun calculateMindMapLayout(
-    root: MindMapNode,
-    center: Offset,
-    scale: Float,
-    layoutStyle: MindMapLayoutStyle,
-    expandedNodeIds: Set<String>
-): List<RenderedMindMapNode> {
-    val results = mutableListOf<RenderedMindMapNode>()
+@Composable
+fun MindMapNodeTree(
+    node: MindMapNode,
+    nodeId: String,
+    level: Int,
+    expandedNodeIds: Set<String>,
+    onToggleExpand: (String) -> Unit,
+    nodeOffsets: Map<String, Offset>,
+    onDragNode: (String, Offset) -> Unit,
+    containerCoords: LayoutCoordinates?,
+    onPositioned: (String, Offset) -> Unit
+) {
+    val isExpanded = expandedNodeIds.contains(nodeId)
+    val hasChildren = node.children.isNotEmpty()
 
-    val rootWidth = 145f * scale
-    val rootHeight = 52f * scale
-    val isRootExpanded = expandedNodeIds.contains("root")
-
-    results.add(
-        RenderedMindMapNode(
-            id = "root",
-            title = root.title,
-            center = center,
-            width = rootWidth,
-            height = rootHeight,
-            level = 0,
-            hasChildren = root.children.isNotEmpty(),
-            isExpanded = isRootExpanded,
-            parentCenter = null
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(48.dp),
+        modifier = Modifier.wrapContentSize()
+    ) {
+        // 1. Current Node Card
+        MindMapNodeCard(
+            node = node,
+            nodeId = nodeId,
+            level = level,
+            hasChildren = hasChildren,
+            isExpanded = isExpanded,
+            onToggleExpand = { onToggleExpand(nodeId) },
+            dragOffset = nodeOffsets[nodeId] ?: Offset.Zero,
+            onDrag = { delta -> onDragNode(nodeId, delta) },
+            containerCoords = containerCoords,
+            onPositioned = { center -> onPositioned(nodeId, center) }
         )
-    )
 
-    if (!isRootExpanded || root.children.isEmpty()) return results
-
-    val children = root.children
-
-    when (layoutStyle) {
-        MindMapLayoutStyle.HIERARCHICAL -> {
-            // Symmetrical horizontal split: half to the right, half to the left
-            val half = (children.size + 1) / 2
-            val rightChildren = children.take(half)
-            val leftChildren = children.drop(half)
-
-            layoutHierarchicalSide(
-                parentCenter = center,
-                children = rightChildren,
-                isRight = true,
-                startIndex = 0,
-                scale = scale,
-                expandedNodeIds = expandedNodeIds,
-                outList = results
-            )
-
-            layoutHierarchicalSide(
-                parentCenter = center,
-                children = leftChildren,
-                isRight = false,
-                startIndex = half,
-                scale = scale,
-                expandedNodeIds = expandedNodeIds,
-                outList = results
-            )
-        }
-
-        MindMapLayoutStyle.RADIAL -> {
-            // Spider web radiating circularly from root
-            val n = children.size
-            val radius1 = 190f * scale
-            val radius2 = 340f * scale
-
-            children.forEachIndexed { i, child ->
-                val childId = "node_$i"
-                val angle = (2 * Math.PI * i / n) - (Math.PI / 2)
-                val childCenter = Offset(
-                    (center.x + radius1 * kotlin.math.cos(angle)).toFloat(),
-                    (center.y + radius1 * kotlin.math.sin(angle)).toFloat()
-                )
-                val isExpanded = expandedNodeIds.contains(childId)
-                val childWidth = 125f * scale
-                val childHeight = 44f * scale
-
-                results.add(
-                    RenderedMindMapNode(
-                        id = childId,
-                        title = child.title,
-                        center = childCenter,
-                        width = childWidth,
-                        height = childHeight,
-                        level = 1,
-                        hasChildren = child.children.isNotEmpty(),
-                        isExpanded = isExpanded,
-                        parentCenter = center
+        // 2. Children Column (spaced by 32dp so nodes never touch or overlap)
+        if (hasChildren && isExpanded) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(32.dp),
+                horizontalAlignment = Alignment.Start,
+                modifier = Modifier.wrapContentSize()
+            ) {
+                node.children.forEachIndexed { index, child ->
+                    val childId = "${nodeId}_$index"
+                    MindMapNodeTree(
+                        node = child,
+                        nodeId = childId,
+                        level = level + 1,
+                        expandedNodeIds = expandedNodeIds,
+                        onToggleExpand = onToggleExpand,
+                        nodeOffsets = nodeOffsets,
+                        onDragNode = onDragNode,
+                        containerCoords = containerCoords,
+                        onPositioned = onPositioned
                     )
-                )
-
-                if (isExpanded && child.children.isNotEmpty()) {
-                    val m = child.children.size
-                    val arcSpan = (2 * Math.PI / n * 0.85).coerceAtMost(Math.PI / 2)
-                    child.children.forEachIndexed { j, leaf ->
-                        val leafAngle = if (m > 1) {
-                            angle - (arcSpan / 2) + (arcSpan * j / (m - 1))
-                        } else {
-                            angle
-                        }
-                        val leafCenter = Offset(
-                            (center.x + radius2 * kotlin.math.cos(leafAngle)).toFloat(),
-                            (center.y + radius2 * kotlin.math.sin(leafAngle)).toFloat()
-                        )
-                        results.add(
-                            RenderedMindMapNode(
-                                id = "${childId}_$j",
-                                title = leaf.title,
-                                center = leafCenter,
-                                width = 110f * scale,
-                                height = 38f * scale,
-                                level = 2,
-                                hasChildren = false,
-                                isExpanded = false,
-                                parentCenter = childCenter
-                            )
-                        )
-                    }
-                }
-            }
-        }
-
-        MindMapLayoutStyle.SCATTER -> {
-            // Organic clustered force look with comfortable separation
-            val n = children.size
-            children.forEachIndexed { i, child ->
-                val childId = "node_$i"
-                val angle = (i * 2.39996) // Golden angle for organic dispersion
-                val dist = (175f + (i % 2) * 45f) * scale
-                val childCenter = Offset(
-                    (center.x + dist * kotlin.math.cos(angle)).toFloat(),
-                    (center.y + dist * kotlin.math.sin(angle)).toFloat()
-                )
-                val isExpanded = expandedNodeIds.contains(childId)
-                val childWidth = 125f * scale
-                val childHeight = 44f * scale
-
-                results.add(
-                    RenderedMindMapNode(
-                        id = childId,
-                        title = child.title,
-                        center = childCenter,
-                        width = childWidth,
-                        height = childHeight,
-                        level = 1,
-                        hasChildren = child.children.isNotEmpty(),
-                        isExpanded = isExpanded,
-                        parentCenter = center
-                    )
-                )
-
-                if (isExpanded && child.children.isNotEmpty()) {
-                    val m = child.children.size
-                    val fanDist = 130f * scale
-                    child.children.forEachIndexed { j, leaf ->
-                        val fanAngle = angle + (j - (m - 1) / 2f) * 0.55
-                        val leafCenter = Offset(
-                            (childCenter.x + fanDist * kotlin.math.cos(fanAngle)).toFloat(),
-                            (childCenter.y + fanDist * kotlin.math.sin(fanAngle)).toFloat()
-                        )
-                        results.add(
-                            RenderedMindMapNode(
-                                id = "${childId}_$j",
-                                title = leaf.title,
-                                center = leafCenter,
-                                width = 110f * scale,
-                                height = 38f * scale,
-                                level = 2,
-                                hasChildren = false,
-                                isExpanded = false,
-                                parentCenter = childCenter
-                            )
-                        )
-                    }
                 }
             }
         }
     }
-
-    return results
 }
 
 /**
- * Calculates vertical positions for a side of the hierarchical tree ensuring no branches or leaves overlap.
+ * Draggable, dynamically-sized Node Card with distinct styling per hierarchy level.
  */
-private fun layoutHierarchicalSide(
-    parentCenter: Offset,
-    children: List<MindMapNode>,
-    isRight: Boolean,
-    startIndex: Int,
-    scale: Float,
-    expandedNodeIds: Set<String>,
-    outList: MutableList<RenderedMindMapNode>
+@Composable
+fun MindMapNodeCard(
+    node: MindMapNode,
+    nodeId: String,
+    level: Int,
+    hasChildren: Boolean,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
+    dragOffset: Offset,
+    onDrag: (Offset) -> Unit,
+    containerCoords: LayoutCoordinates?,
+    onPositioned: (Offset) -> Unit
 ) {
-    if (children.isEmpty()) return
-
-    val horizontalDist = 180f * scale
-    val leafHorizontalDist = 160f * scale
-    val unitLeafHeight = 48f * scale
-
-    // 1. Calculate required subtree height for each child
-    val heights = children.mapIndexed { idx, child ->
-        val childId = "node_${startIndex + idx}"
-        val isExpanded = expandedNodeIds.contains(childId)
-        if (isExpanded && child.children.isNotEmpty()) {
-            child.children.size * unitLeafHeight
-        } else {
-            54f * scale
-        }
+    val containerColor = when (level) {
+        0 -> MaterialTheme.colorScheme.primary
+        1 -> MaterialTheme.colorScheme.primaryContainer
+        2 -> MaterialTheme.colorScheme.secondaryContainer
+        else -> MaterialTheme.colorScheme.surface
+    }
+    val contentColor = when (level) {
+        0 -> MaterialTheme.colorScheme.onPrimary
+        1 -> MaterialTheme.colorScheme.onPrimaryContainer
+        2 -> MaterialTheme.colorScheme.onSecondaryContainer
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+    val borderColor = when (level) {
+        0 -> Color.White.copy(alpha = 0.5f)
+        1 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+        2 -> MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
+        else -> MaterialTheme.colorScheme.outlineVariant
+    }
+    val elevation = when (level) {
+        0 -> 6.dp
+        1 -> 4.dp
+        2 -> 3.dp
+        else -> 2.dp
+    }
+    val cornerRadius = when (level) {
+        0 -> 16.dp
+        1 -> 14.dp
+        2 -> 12.dp
+        else -> 10.dp
     }
 
-    val totalSideHeight = heights.sum()
-    var currentY = parentCenter.y - (totalSideHeight / 2f)
-
-    children.forEachIndexed { idx, child ->
-        val childId = "node_${startIndex + idx}"
-        val isExpanded = expandedNodeIds.contains(childId)
-        val branchHeight = heights[idx]
-        val childY = currentY + (branchHeight / 2f)
-        val childX = if (isRight) parentCenter.x + horizontalDist else parentCenter.x - horizontalDist
-        val childCenter = Offset(childX, childY)
-        val childWidth = 130f * scale
-        val childHeight = 44f * scale
-
-        outList.add(
-            RenderedMindMapNode(
-                id = childId,
-                title = child.title,
-                center = childCenter,
-                width = childWidth,
-                height = childHeight,
-                level = 1,
-                hasChildren = child.children.isNotEmpty(),
-                isExpanded = isExpanded,
-                parentCenter = parentCenter
-            )
-        )
-
-        // If expanded, position grandchildren within this child's allocated height band
-        if (isExpanded && child.children.isNotEmpty()) {
-            val leaves = child.children
-            val leafStartY = currentY + (unitLeafHeight / 2f)
-            leaves.forEachIndexed { lIdx, leaf ->
-                val leafY = leafStartY + lIdx * unitLeafHeight
-                val leafX = if (isRight) childX + leafHorizontalDist else childX - leafHorizontalDist
-                val leafCenter = Offset(leafX, leafY)
-
-                outList.add(
-                    RenderedMindMapNode(
-                        id = "${childId}_$lIdx",
-                        title = leaf.title,
-                        center = leafCenter,
-                        width = 115f * scale,
-                        height = 38f * scale,
-                        level = 2,
-                        hasChildren = false,
-                        isExpanded = false,
-                        parentCenter = childCenter
-                    )
-                )
+    Surface(
+        modifier = Modifier
+            .offset { IntOffset(dragOffset.x.roundToInt(), dragOffset.y.roundToInt()) }
+            .widthIn(min = 140.dp, max = 280.dp)
+            .wrapContentHeight()
+            .onGloballyPositioned { coords ->
+                containerCoords?.let { container ->
+                    if (coords.isAttached && container.isAttached) {
+                        val center = container.localPositionOf(
+                            coords,
+                            Offset(coords.size.width / 2f, coords.size.height / 2f)
+                        )
+                        onPositioned(center)
+                    }
+                }
             }
-        }
+            .pointerInput(nodeId) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    onDrag(dragAmount)
+                }
+            }
+            .testTag("mindmap_node_$nodeId"),
+        shape = RoundedCornerShape(cornerRadius),
+        color = containerColor,
+        tonalElevation = elevation,
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                val badgeText = when (level) {
+                    0 -> "ROOT TOPIC"
+                    1 -> "LAYER 1"
+                    2 -> "LAYER 2 DETAIL"
+                    else -> "LAYER 3 DEEP"
+                }
+                Text(
+                    text = badgeText,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 9.sp,
+                        letterSpacing = 0.5.sp
+                    ),
+                    color = contentColor.copy(alpha = 0.8f)
+                )
 
-        currentY += branchHeight
+                if (hasChildren) {
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (level == 0) Color.White.copy(alpha = 0.25f)
+                                else MaterialTheme.colorScheme.surface.copy(alpha = 0.65f)
+                            )
+                            .clickable { onToggleExpand() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (isExpanded) "−" else "+",
+                            style = TextStyle(
+                                color = contentColor,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            Text(
+                text = node.title,
+                style = when (level) {
+                    0 -> MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    1 -> MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                    2 -> MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium)
+                    else -> MaterialTheme.typography.bodySmall
+                },
+                color = contentColor
+            )
+        }
     }
 }
+
 
 // ----------------------------------------------------------------------------
 // TAB 0: QUIZ TAB (FULL INTEGRATION OF QUIZ SYSTEM)

@@ -80,10 +80,17 @@ object StudyToolParser {
     }
 
     private fun parseNode(nodeObj: JSONObject): MindMapNode {
-        val title = nodeObj.getString("title").trim()
+        val title = (nodeObj.optString("title").ifBlank {
+            nodeObj.optString("name").ifBlank {
+                nodeObj.optString("topic", "Topic")
+            }
+        }).trim()
         val childrenList = mutableListOf<MindMapNode>()
-        if (nodeObj.has("children")) {
-            val arr = nodeObj.optJSONArray("children") ?: JSONArray()
+        val arr = nodeObj.optJSONArray("children")
+            ?: nodeObj.optJSONArray("subtopics")
+            ?: nodeObj.optJSONArray("subTopics")
+            ?: nodeObj.optJSONArray("items")
+        if (arr != null) {
             for (i in 0 until arr.length()) {
                 val childObj = arr.optJSONObject(i)
                 if (childObj != null) {
@@ -130,52 +137,75 @@ object StudyToolParser {
     }
 
     /**
-     * Default Sample Mind Map for instant interactive viewing
+     * Default Sample Mind Map featuring a deep 3-layer hierarchy
      */
     fun getSampleMindMap(): MindMapData {
         return MindMapData(
             chapter = "Physics: Force & Rotational Motion",
             root = MindMapNode(
-                title = "FORCE",
+                title = "FORCE & ROTATIONAL MOTION",
                 children = listOf(
                     MindMapNode(
-                        title = "Linear Motion",
+                        title = "1. Moment of Force & Torque",
                         children = listOf(
-                            MindMapNode("Force = m × a"),
-                            MindMapNode("Pivoted Body Translates"),
-                            MindMapNode("Unit: Newton (N)")
+                            MindMapNode(
+                                title = "Definition & Formula",
+                                children = listOf(
+                                    MindMapNode("Torque (τ) = Force (F) × Perpendicular Distance (r)"),
+                                    MindMapNode("SI Unit: N m (1 N m = 10⁷ dyne cm)"),
+                                    MindMapNode("Pivoted body produces rotational turning effect")
+                                )
+                            ),
+                            MindMapNode(
+                                title = "Sign Conventions & Couple",
+                                children = listOf(
+                                    MindMapNode("Anticlockwise = Positive (+), Clockwise = Negative (−)"),
+                                    MindMapNode("Couple: Pair of equal, opposite parallel forces"),
+                                    MindMapNode("Principle of Moments: Σ Clockwise = Σ Anticlockwise")
+                                )
+                            )
                         )
                     ),
                     MindMapNode(
-                        title = "Rotational Motion",
+                        title = "2. Centre of Gravity (CG)",
                         children = listOf(
-                            MindMapNode("Moment of Force (Torque)"),
-                            MindMapNode("τ = F × d"),
-                            MindMapNode("Couple: Pair of equal, opposite forces")
+                            MindMapNode(
+                                title = "Key Properties",
+                                children = listOf(
+                                    MindMapNode("Point where entire weight acts vertically downwards"),
+                                    MindMapNode("Can lie outside body material (e.g. Ring, Hollow Sphere)"),
+                                    MindMapNode("Independent of orientation; depends only on mass distribution")
+                                )
+                            ),
+                            MindMapNode(
+                                title = "Equilibrium Classes",
+                                children = listOf(
+                                    MindMapNode("Stable: CG rises when tilted, restores itself"),
+                                    MindMapNode("Unstable: CG lowers when tilted, topples easily"),
+                                    MindMapNode("Neutral: CG height remains constant on displacement")
+                                )
+                            )
                         )
                     ),
                     MindMapNode(
-                        title = "Equilibrium",
+                        title = "3. Uniform Circular Motion",
                         children = listOf(
-                            MindMapNode("Dynamic Equilibrium"),
-                            MindMapNode("Static Equilibrium"),
-                            MindMapNode("Principle of Moments: Στ = 0")
-                        )
-                    ),
-                    MindMapNode(
-                        title = "Centre of Gravity",
-                        children = listOf(
-                            MindMapNode("Point of entire weight"),
-                            MindMapNode("Can lie outside material"),
-                            MindMapNode("Stability Factors")
-                        )
-                    ),
-                    MindMapNode(
-                        title = "Uniform Circular Motion",
-                        children = listOf(
-                            MindMapNode("Centripetal Force (towards center)"),
-                            MindMapNode("Centrifugal Force (fictitious)"),
-                            MindMapNode("Constant speed, changing velocity")
+                            MindMapNode(
+                                title = "Dynamics of Radial Force",
+                                children = listOf(
+                                    MindMapNode("Centripetal Force: Real force towards center (F = mv²/r)"),
+                                    MindMapNode("Centrifugal Force: Fictitious inertial reaction"),
+                                    MindMapNode("Work done by centripetal force is zero (W = F·d·cos 90° = 0)")
+                                )
+                            ),
+                            MindMapNode(
+                                title = "Kinematic Features",
+                                children = listOf(
+                                    MindMapNode("Constant scalar speed with variable directional velocity"),
+                                    MindMapNode("Continuous radial acceleration: a = v²/r"),
+                                    MindMapNode("Periodic motion with constant angular velocity (ω = 2π/T)")
+                                )
+                            )
                         )
                     )
                 )
