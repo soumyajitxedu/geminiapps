@@ -31,7 +31,7 @@ import com.example.data.model.SavedFlashcardDeckEntity
         UserProfileEntity::class,
         SavedFlashcardDeckEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class FocusGroveDatabase : RoomDatabase() {
@@ -83,7 +83,14 @@ abstract class FocusGroveDatabase : RoomDatabase() {
                             selectedSpecies = "OAK",
                             unlockedItems = "OAK",
                             demoModeEnabled = false,
-                            activeAmbientSound = "NONE"
+                            activeAmbientSound = "NONE",
+                            unlockedPets = "DUCK",
+                            equippedPet = "DUCK",
+                            unlockedThemes = "DEFAULT",
+                            equippedTheme = "DEFAULT",
+                            unlockedFonts = "DEFAULT",
+                            equippedFont = "DEFAULT",
+                            customBackgroundUri = null
                         )
                     )
                 }

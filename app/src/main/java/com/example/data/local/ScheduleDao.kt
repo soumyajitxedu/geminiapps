@@ -44,4 +44,10 @@ interface ScheduleDao {
 
     @Query("SELECT COUNT(*) FROM schedule_events")
     suspend fun getEventCount(): Int
+
+    @Query("SELECT * FROM schedule_events ORDER BY id ASC")
+    suspend fun getAllEventsList(): List<ScheduleEventEntity>
+
+    @Query("DELETE FROM schedule_events")
+    suspend fun clearAllEvents()
 }

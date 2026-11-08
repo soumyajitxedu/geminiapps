@@ -607,6 +607,7 @@ fun ForestScreen(
                                     isDead = isDead,
                                     growthProgress = 1f,
                                     hydrationLevel = tree.hydrationLevel,
+                                    subjectTag = tree.subjectTag,
                                     modifier = Modifier.size(72.dp)
                                 )
                             }
@@ -659,6 +660,7 @@ fun ForestScreen(
                             species = species,
                             isDead = isDead,
                             hydrationLevel = tree.hydrationLevel,
+                            subjectTag = tree.subjectTag,
                             modifier = Modifier.size(76.dp)
                         )
                     }

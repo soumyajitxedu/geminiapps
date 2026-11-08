@@ -18,13 +18,31 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.unit.dp
 import com.example.data.model.TreeSpecies
 
+fun getSubjectFoliageOverride(subjectTag: String): Triple<Color, Color, Color>? {
+    val tag = subjectTag.trim().lowercase()
+    if (tag.isBlank() || tag == "general" || tag == "general focus" || tag == "routine" || tag == "break") return null
+    return when {
+        tag.contains("physic") -> Triple(Color(0xFF2979FF), Color(0xFF82B1FF), Color(0xFF1565C0)) // Physics = Blue
+        tag.contains("chem") -> Triple(Color(0xFF43A047), Color(0xFF81C784), Color(0xFF1B5E20)) // Chemistry = Green
+        tag.contains("math") -> Triple(Color(0xFFE53935), Color(0xFFFF8A80), Color(0xFFB71C1C)) // Maths = Red
+        tag.contains("bio") -> Triple(Color(0xFF00897B), Color(0xFF4DB6AC), Color(0xFF004D40)) // Biology = Teal
+        tag.contains("hist") || tag.contains("civic") -> Triple(Color(0xFFFB8C00), Color(0xFFFFB74D), Color(0xFFE65100)) // History = Amber
+        tag.contains("geog") -> Triple(Color(0xFF00ACC1), Color(0xFF4DD0E1), Color(0xFF006064)) // Geography = Cyan
+        tag.contains("lit") || tag.contains("eng") -> Triple(Color(0xFF8E24AA), Color(0xFFBA68C8), Color(0xFF4A148C)) // Literature = Purple
+        tag.contains("comp") -> Triple(Color(0xFF3949AB), Color(0xFF7986CB), Color(0xFF1A237E)) // Computer = Indigo
+        tag.contains("hindi") || tag.contains("l2") -> Triple(Color(0xFFFFB300), Color(0xFFFFD54F), Color(0xFFFF6F00)) // L2 = Gold/Yellow
+        else -> null
+    }
+}
+
 @Composable
 fun TreeCanvas(
     species: TreeSpecies,
     isDead: Boolean,
     modifier: Modifier = Modifier,
     growthProgress: Float = 1f,
-    hydrationLevel: Int = 100
+    hydrationLevel: Int = 100,
+    subjectTag: String = ""
 ) {
     val animatedGrowth by animateFloatAsState(
         targetValue = growthProgress.coerceIn(0.05f, 1f),
@@ -33,6 +51,7 @@ fun TreeCanvas(
     )
 
     val isDehydrated = hydrationLevel < 50
+    val foliageColors = getSubjectFoliageOverride(subjectTag)
 
     Box(
         modifier = modifier,
@@ -64,13 +83,13 @@ fun TreeCanvas(
                         // Stage 4: Fully Grown Pixel Tree
                         val matureScale = ((animatedGrowth - 0.85f) / 0.15f).coerceIn(0.85f, 1f)
                         when (species) {
-                            TreeSpecies.OAK -> drawPixelOakTree(w, h, matureScale)
-                            TreeSpecies.CHERRY_BLOSSOM -> drawPixelCherryBlossomTree(w, h, matureScale)
-                            TreeSpecies.PINE -> drawPixelPineTree(w, h, matureScale)
-                            TreeSpecies.BONSAI -> drawPixelBonsaiTree(w, h, matureScale)
-                            TreeSpecies.GOLDEN_OAK -> drawPixelGoldenOakTree(w, h, matureScale)
-                            TreeSpecies.SAKURA -> drawPixelSakuraTree(w, h, matureScale)
-                            TreeSpecies.CRYSTAL_PINE -> drawPixelCrystalPineTree(w, h, matureScale)
+                            TreeSpecies.OAK -> drawPixelOakTree(w, h, matureScale, foliageColors)
+                            TreeSpecies.CHERRY_BLOSSOM -> drawPixelCherryBlossomTree(w, h, matureScale, foliageColors)
+                            TreeSpecies.PINE -> drawPixelPineTree(w, h, matureScale, foliageColors)
+                            TreeSpecies.BONSAI -> drawPixelBonsaiTree(w, h, matureScale, foliageColors)
+                            TreeSpecies.GOLDEN_OAK -> drawPixelGoldenOakTree(w, h, matureScale, foliageColors)
+                            TreeSpecies.SAKURA -> drawPixelSakuraTree(w, h, matureScale, foliageColors)
+                            TreeSpecies.CRYSTAL_PINE -> drawPixelCrystalPineTree(w, h, matureScale, foliageColors)
                         }
                     }
                 }
@@ -230,7 +249,7 @@ private fun DrawScope.drawPixelSmallPlant(w: Float, h: Float, species: TreeSpeci
 }
 
 // STAGE 4: Fully Grown Pixel Oak Tree
-private fun DrawScope.drawPixelOakTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelOakTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -257,11 +276,11 @@ private fun DrawScope.drawPixelOakTree(w: Float, h: Float, scale: Float) {
     drawPixelBlock(12f, 26f, cols, rows, trunkDark, w, h, spanX = 2f, spanY = 1f)
     drawPixelBlock(18f, 26f, cols, rows, trunkMain, w, h, spanX = 2f, spanY = 1f)
 
-    // Lush Layered Pixel Canopy
-    val greenDeep = Color(0xFF1B5E20)
-    val greenMid = Color(0xFF2E9A53)
-    val greenBright = Color(0xFF48C774)
-    val greenHighlight = Color(0xFF85E3A8)
+    // Lush Layered Pixel Canopy (Tinted dynamically by Subject Tag)
+    val greenDeep = foliageOverride?.third ?: Color(0xFF1B5E20)
+    val greenMid = foliageOverride?.first ?: Color(0xFF2E9A53)
+    val greenBright = foliageOverride?.first ?: Color(0xFF48C774)
+    val greenHighlight = foliageOverride?.second ?: Color(0xFF85E3A8)
 
     // Bottom dark canopy layer
     drawPixelBlock(6f, 11f, cols, rows, greenDeep, w, h, spanX = 20f, spanY = 7f)
@@ -298,7 +317,7 @@ private fun DrawScope.drawPixelOakTree(w: Float, h: Float, scale: Float) {
 }
 
 // STAGE 4: Fully Grown Pixel Cherry Blossom Tree
-private fun DrawScope.drawPixelCherryBlossomTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelCherryBlossomTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -318,9 +337,9 @@ private fun DrawScope.drawPixelCherryBlossomTree(w: Float, h: Float, scale: Floa
     drawPixelBlock(17f, 16f, cols, rows, Color(0xFF4A3528), w, h, spanX = 4f, spanY = 2f)
 
     // Cute Fluffy Pink Blossom Canopy
-    val pinkDeep = Color(0xFFE05780)
-    val pinkMid = Color(0xFFFF85A1)
-    val pinkSoft = Color(0xFFFFADC6)
+    val pinkDeep = foliageOverride?.third ?: Color(0xFFE05780)
+    val pinkMid = foliageOverride?.first ?: Color(0xFFFF85A1)
+    val pinkSoft = foliageOverride?.second ?: Color(0xFFFFADC6)
     val pinkWhite = Color(0xFFFFF0F5)
 
     // Base deep pink
@@ -347,7 +366,7 @@ private fun DrawScope.drawPixelCherryBlossomTree(w: Float, h: Float, scale: Floa
 }
 
 // STAGE 4: Fully Grown Pixel Pine Tree
-private fun DrawScope.drawPixelPineTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelPineTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -363,25 +382,30 @@ private fun DrawScope.drawPixelPineTree(w: Float, h: Float, scale: Float) {
         drawPixelBlock(15f, y.toFloat(), cols, rows, Color(0xFF8B5E3C), w, h, spanX = 2f)
     }
 
+    val pineDeep = foliageOverride?.third ?: Color(0xFF1B5E20)
+    val pineMid = foliageOverride?.first ?: Color(0xFF2E9A53)
+    val pineBright = foliageOverride?.first ?: Color(0xFF48C774)
+    val pineHighlight = foliageOverride?.second ?: Color(0xFF85E3A8)
+
     // Tier 1 (Bottom, widest)
-    drawPixelBlock(7f, 18f, cols, rows, Color(0xFF1B5E20), w, h, spanX = 18f, spanY = 4f)
-    drawPixelBlock(8f, 17f, cols, rows, Color(0xFF2E9A53), w, h, spanX = 16f, spanY = 2f)
-    drawPixelBlock(9f, 16f, cols, rows, Color(0xFF48C774), w, h, spanX = 14f, spanY = 2f)
+    drawPixelBlock(7f, 18f, cols, rows, pineDeep, w, h, spanX = 18f, spanY = 4f)
+    drawPixelBlock(8f, 17f, cols, rows, pineMid, w, h, spanX = 16f, spanY = 2f)
+    drawPixelBlock(9f, 16f, cols, rows, pineBright, w, h, spanX = 14f, spanY = 2f)
 
     // Tier 2 (Middle)
-    drawPixelBlock(9f, 13f, cols, rows, Color(0xFF1B5E20), w, h, spanX = 14f, spanY = 4f)
-    drawPixelBlock(10f, 12f, cols, rows, Color(0xFF2E9A53), w, h, spanX = 12f, spanY = 2f)
-    drawPixelBlock(11f, 11f, cols, rows, Color(0xFF48C774), w, h, spanX = 10f, spanY = 2f)
+    drawPixelBlock(9f, 13f, cols, rows, pineDeep, w, h, spanX = 14f, spanY = 4f)
+    drawPixelBlock(10f, 12f, cols, rows, pineMid, w, h, spanX = 12f, spanY = 2f)
+    drawPixelBlock(11f, 11f, cols, rows, pineBright, w, h, spanX = 10f, spanY = 2f)
 
     // Tier 3 (Top point)
-    drawPixelBlock(11f, 8f, cols, rows, Color(0xFF1B5E20), w, h, spanX = 10f, spanY = 4f)
-    drawPixelBlock(12f, 6f, cols, rows, Color(0xFF2E9A53), w, h, spanX = 8f, spanY = 3f)
-    drawPixelBlock(13f, 4f, cols, rows, Color(0xFF48C774), w, h, spanX = 6f, spanY = 3f)
-    drawPixelBlock(15f, 2f, cols, rows, Color(0xFF85E3A8), w, h, spanX = 2f, spanY = 3f)
+    drawPixelBlock(11f, 8f, cols, rows, pineDeep, w, h, spanX = 10f, spanY = 4f)
+    drawPixelBlock(12f, 6f, cols, rows, pineMid, w, h, spanX = 8f, spanY = 3f)
+    drawPixelBlock(13f, 4f, cols, rows, pineBright, w, h, spanX = 6f, spanY = 3f)
+    drawPixelBlock(15f, 2f, cols, rows, pineHighlight, w, h, spanX = 2f, spanY = 3f)
 }
 
 // STAGE 4: Fully Grown Pixel Bonsai Tree
-private fun DrawScope.drawPixelBonsaiTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelBonsaiTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -405,9 +429,9 @@ private fun DrawScope.drawPixelBonsaiTree(w: Float, h: Float, scale: Float) {
     drawPixelBlock(13f, 13f, cols, rows, woodMid, w, h, spanX = 3f, spanY = 3f)
 
     // Zen Foliage Cloud Pads
-    val cloudDark = Color(0xFF2E7D32)
-    val cloudMid = Color(0xFF43A047)
-    val cloudLight = Color(0xFF7CB342)
+    val cloudDark = foliageOverride?.third ?: Color(0xFF2E7D32)
+    val cloudMid = foliageOverride?.first ?: Color(0xFF43A047)
+    val cloudLight = foliageOverride?.second ?: Color(0xFF7CB342)
 
     // Left lower pad
     drawPixelBlock(7f, 17f, cols, rows, cloudDark, w, h, spanX = 7f, spanY = 3f)
@@ -526,7 +550,7 @@ fun PixelArtEmblem(
 }
 
 // STAGE 4: Fully Grown Golden Oak Tree (Rare)
-private fun DrawScope.drawPixelGoldenOakTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelGoldenOakTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -543,9 +567,9 @@ private fun DrawScope.drawPixelGoldenOakTree(w: Float, h: Float, scale: Float) {
     }
 
     // Radiant Golden Canopy
-    val goldDeep = Color(0xFFB8860B)
-    val goldMid = Color(0xFFFFD700)
-    val goldBright = Color(0xFFFFE066)
+    val goldDeep = foliageOverride?.third ?: Color(0xFFB8860B)
+    val goldMid = foliageOverride?.first ?: Color(0xFFFFD700)
+    val goldBright = foliageOverride?.second ?: Color(0xFFFFE066)
     val goldSparkle = Color(0xFFFFFBEA)
 
     drawPixelBlock(6f, 11f, cols, rows, goldDeep, w, h, spanX = 20f, spanY = 7f)
@@ -565,7 +589,7 @@ private fun DrawScope.drawPixelGoldenOakTree(w: Float, h: Float, scale: Float) {
 }
 
 // STAGE 4: Fully Grown Kyoto Sakura Tree (Rare)
-private fun DrawScope.drawPixelSakuraTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelSakuraTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -584,9 +608,9 @@ private fun DrawScope.drawPixelSakuraTree(w: Float, h: Float, scale: Float) {
     drawPixelBlock(17f, 14f, cols, rows, Color(0xFF3E2723), w, h, spanX = 5f, spanY = 2f)
 
     // Vivid Sakura Magenta-Pink Canopy
-    val sakuraDeep = Color(0xFFC2185B)
-    val sakuraMid = Color(0xFFE91E63)
-    val sakuraLight = Color(0xFFF06292)
+    val sakuraDeep = foliageOverride?.third ?: Color(0xFFC2185B)
+    val sakuraMid = foliageOverride?.first ?: Color(0xFFE91E63)
+    val sakuraLight = foliageOverride?.second ?: Color(0xFFF06292)
     val sakuraWhite = Color(0xFFFFF0F5)
 
     drawPixelBlock(5f, 9f, cols, rows, sakuraDeep, w, h, spanX = 22f, spanY = 8f)
@@ -601,7 +625,7 @@ private fun DrawScope.drawPixelSakuraTree(w: Float, h: Float, scale: Float) {
 }
 
 // STAGE 4: Fully Grown Crystal Pine Tree (Rare)
-private fun DrawScope.drawPixelCrystalPineTree(w: Float, h: Float, scale: Float) {
+private fun DrawScope.drawPixelCrystalPineTree(w: Float, h: Float, scale: Float, foliageOverride: Triple<Color, Color, Color>? = null) {
     val cols = 32f
     val rows = 32f
 
@@ -617,9 +641,9 @@ private fun DrawScope.drawPixelCrystalPineTree(w: Float, h: Float, scale: Float)
     }
 
     // Multi-tiered Crystalline Ice Needle Layers
-    val iceDeep = Color(0xFF1565C0)
-    val iceMid = Color(0xFF29B6F6)
-    val iceBright = Color(0xFF80DEEA)
+    val iceDeep = foliageOverride?.third ?: Color(0xFF1565C0)
+    val iceMid = foliageOverride?.first ?: Color(0xFF29B6F6)
+    val iceBright = foliageOverride?.second ?: Color(0xFF80DEEA)
     val iceFrost = Color(0xFFFFFFFF)
 
     // Tier 1 (Bottom Tier)

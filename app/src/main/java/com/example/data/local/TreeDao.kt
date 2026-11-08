@@ -33,6 +33,12 @@ interface TreeDao {
     @Query("UPDATE trees SET hydrationLevel = 100, lastWateredTimestamp = :timestamp WHERE status = 'ALIVE'")
     suspend fun waterAllTrees(timestamp: Long)
 
+    @Query("SELECT * FROM trees ORDER BY timestamp DESC")
+    suspend fun getAllTreesList(): List<TreeRecord>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTrees(trees: List<TreeRecord>)
+
     @Query("DELETE FROM trees")
     suspend fun clearAll()
 }

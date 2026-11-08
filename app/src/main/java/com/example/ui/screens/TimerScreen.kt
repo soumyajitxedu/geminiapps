@@ -49,7 +49,10 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -134,6 +137,21 @@ fun TimerScreen(
     val currentQuote = viewModel.motivationalQuotes.getOrElse(activeQuoteIndex) { "Stay focused!" }
     val currentGratitude = viewModel.gratitudePrompts.getOrElse(activeGratitudeIndex) { "What are you thankful for today?" }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val bgPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+            viewModel.setCustomBackgroundUri(uri)
+        }
+    }
+
     val audioPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -201,11 +219,28 @@ fun TimerScreen(
         label = "timerBackground"
     )
 
+    val customBgUri = economy?.customBackgroundUri
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(backgroundColor)
     ) {
+        // Custom gallery wallpaper with solid dark overlay (no blur as specified)
+        if (!customBgUri.isNullOrBlank()) {
+            AsyncImage(
+                model = customBgUri,
+                contentDescription = "Custom Background",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f))
+            )
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -214,7 +249,7 @@ fun TimerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Top Section: Title Bar with Settings Gear & Demo Mode
+            // Top Section: Title Bar with Settings Gear, Background Customizer & Demo Mode
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -237,6 +272,22 @@ fun TimerScreen(
                 }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Custom Background Image Picker
+                    IconButton(
+                        onClick = { bgPickerLauncher.launch("image/*") },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .testTag("timer_change_background_button")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Wallpaper,
+                            contentDescription = "Change Background",
+                            tint = if (isFailed) Color.White else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
                     // Demo Mode Switch
                     Surface(
                         shape = RoundedCornerShape(10.dp),

@@ -12,8 +12,14 @@ interface QuizDao {
     @Query("SELECT * FROM quiz_results ORDER BY timestamp DESC")
     fun getAllQuizResults(): Flow<List<QuizResultEntity>>
 
+    @Query("SELECT * FROM quiz_results ORDER BY timestamp DESC")
+    suspend fun getAllQuizResultsList(): List<QuizResultEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertQuizResult(result: QuizResultEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertQuizResults(results: List<QuizResultEntity>)
 
     @Query("SELECT COUNT(*) FROM quiz_results")
     fun getTotalQuizzesTaken(): Flow<Int>

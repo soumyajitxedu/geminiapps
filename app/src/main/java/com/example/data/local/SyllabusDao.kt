@@ -54,4 +54,13 @@ interface SyllabusDao {
 
     @Query("SELECT COUNT(*) FROM chapters")
     fun getTotalChaptersCount(): Flow<Int>
+
+    @Query("SELECT * FROM chapters ORDER BY orderIndex ASC")
+    suspend fun getAllChaptersList(): List<ChapterProgress>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAllChapters(chapters: List<ChapterProgress>)
+
+    @Query("DELETE FROM chapters")
+    suspend fun clearAllChapters()
 }

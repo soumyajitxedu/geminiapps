@@ -38,4 +38,25 @@ interface EconomyDao {
 
     @Query("UPDATE economy SET equippedPet = :pet WHERE id = 1")
     suspend fun setEquippedPet(pet: String)
+
+    @Query("UPDATE economy SET unlockedThemes = :themes WHERE id = 1")
+    suspend fun setUnlockedThemes(themes: String)
+
+    @Query("UPDATE economy SET equippedTheme = :theme WHERE id = 1")
+    suspend fun setEquippedTheme(theme: String)
+
+    @Query("UPDATE economy SET unlockedFonts = :fonts WHERE id = 1")
+    suspend fun setUnlockedFonts(fonts: String)
+
+    @Query("UPDATE economy SET equippedFont = :font WHERE id = 1")
+    suspend fun setEquippedFont(font: String)
+
+    @Query("UPDATE economy SET customBackgroundUri = :uri WHERE id = 1")
+    suspend fun setCustomBackgroundUri(uri: String?)
+
+    @Query("SELECT * FROM economy WHERE id = 1")
+    suspend fun getEconomyOnce(): UserEconomy?
+
+    @Query("DELETE FROM economy")
+    suspend fun clearEconomy()
 }

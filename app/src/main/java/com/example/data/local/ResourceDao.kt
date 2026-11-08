@@ -15,6 +15,9 @@ interface ResourceDao {
     @Query("SELECT * FROM resources ORDER BY isUserAdded DESC, id ASC")
     fun getAllResources(): Flow<List<ResourceEntity>>
 
+    @Query("SELECT * FROM resources ORDER BY isUserAdded DESC, id ASC")
+    suspend fun getAllResourcesList(): List<ResourceEntity>
+
     @Query("SELECT * FROM resources WHERE subject = :subject ORDER BY isUserAdded DESC, id ASC")
     fun getResourcesBySubject(subject: String): Flow<List<ResourceEntity>>
 

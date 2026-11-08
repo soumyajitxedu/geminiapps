@@ -38,6 +38,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ArrowBack
@@ -771,8 +772,7 @@ fun MindMapTabContent(viewModel: MainViewModel) {
     var showImportSection by remember { mutableStateOf(false) }
 
     var zoomScale by remember { mutableFloatStateOf(1.0f) }
-    val hScroll = rememberScrollState(0)
-    val vScroll = rememberScrollState(600)
+    var panOffset by remember { mutableStateOf(Offset(40f, -600f)) }
 
     // Set of node IDs that are expanded
     var expandedNodeIds by remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -899,14 +899,11 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                             Icon(Icons.Default.Refresh, contentDescription = "Reset Node Positions")
                         }
 
-                        // Reset View & Scroll
+                        // Reset View & Pan
                         IconButton(
                             onClick = {
                                 zoomScale = 1.0f
-                                coroutineScope.launch {
-                                    hScroll.animateScrollTo(0)
-                                    vScroll.animateScrollTo(600)
-                                }
+                                panOffset = Offset(40f, -600f)
                             }
                         ) {
                             Icon(Icons.Default.CenterFocusStrong, contentDescription = "Reset View")
@@ -914,14 +911,24 @@ fun MindMapTabContent(viewModel: MainViewModel) {
 
                         // Zoom In
                         IconButton(
-                            onClick = { zoomScale = (zoomScale + 0.15f).coerceAtMost(2.5f) }
+                            onClick = {
+                                val oldScale = zoomScale
+                                val newScale = (zoomScale + 0.2f).coerceAtMost(3.0f)
+                                panOffset *= (newScale / oldScale)
+                                zoomScale = newScale
+                            }
                         ) {
                             Icon(Icons.Default.ZoomIn, contentDescription = "Zoom In")
                         }
 
                         // Zoom Out
                         IconButton(
-                            onClick = { zoomScale = (zoomScale - 0.15f).coerceAtLeast(0.4f) }
+                            onClick = {
+                                val oldScale = zoomScale
+                                val newScale = (zoomScale - 0.2f).coerceAtLeast(0.35f)
+                                panOffset *= (newScale / oldScale)
+                                zoomScale = newScale
+                            }
                         ) {
                             Icon(Icons.Default.ZoomOut, contentDescription = "Zoom Out")
                         }
@@ -947,7 +954,11 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                             horizontalArrangement = Arrangement.End
                         ) {
                             OutlinedButton(
-                                onClick = { viewModel.loadSampleMindMap() },
+                                onClick = {
+                                    viewModel.loadSampleMindMap()
+                                    zoomScale = 1.0f
+                                    panOffset = Offset(40f, -600f)
+                                },
                                 modifier = Modifier.padding(end = 8.dp)
                             ) {
                                 Text("Load Sample 3-Layer Map")
@@ -963,10 +974,7 @@ fun MindMapTabContent(viewModel: MainViewModel) {
                                             showImportSection = false
                                             jsonInput = ""
                                             zoomScale = 1.0f
-                                            coroutineScope.launch {
-                                                hScroll.scrollTo(0)
-                                                vScroll.scrollTo(600)
-                                            }
+                                            panOffset = Offset(40f, -600f)
                                         } else {
                                             Toast.makeText(context, "Invalid JSON format. Please try again.", Toast.LENGTH_SHORT).show()
                                         }
@@ -983,20 +991,30 @@ fun MindMapTabContent(viewModel: MainViewModel) {
         }
 
         // --------------------------------------------------------------------
-        // Infinite Canvas with horizontalScroll & verticalScroll (3200dp Box)
+        // Infinite Canvas with simultaneous 2D Pan and Centroid-anchored Pinch-to-Zoom
         // --------------------------------------------------------------------
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                .clipToBounds()
                 .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f))
-                .horizontalScroll(hScroll)
-                .verticalScroll(vScroll)
+                .pointerInput(Unit) {
+                    detectTransformGestures(panZoomLock = false) { centroid, pan, zoom, _ ->
+                        val oldScale = zoomScale
+                        val newScale = (zoomScale * zoom).coerceIn(0.35f, 3.0f)
+                        // Smooth pinch zoom around centroid without teleporting
+                        panOffset = (panOffset - centroid) * (newScale / oldScale) + centroid + pan
+                        zoomScale = newScale
+                    }
+                }
                 .testTag("mind_map_canvas_container")
         ) {
             Box(
                 modifier = Modifier
                     .size(3200.dp, 3200.dp)
                     .graphicsLayer {
+                        translationX = panOffset.x
+                        translationY = panOffset.y
                         scaleX = zoomScale
                         scaleY = zoomScale
                         transformOrigin = TransformOrigin(0f, 0f)

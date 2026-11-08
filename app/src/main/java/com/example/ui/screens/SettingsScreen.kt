@@ -20,6 +20,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import android.app.TimePickerDialog
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.NotificationsActive
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
@@ -120,6 +129,80 @@ fun SettingsScreen(
     val isDebugUnlocked by viewModel.isDebugUnlocked.collectAsStateWithLifecycle()
     val isPlayfulMode by viewModel.isPlayfulMode.collectAsStateWithLifecycle()
     val debugLogs by viewModel.debugLogs.collectAsStateWithLifecycle()
+
+    val coroutineScope = rememberCoroutineScope()
+
+    // Daily Reminder State
+    var isReminderEnabled by remember { mutableStateOf(viewModel.isDailyReminderEnabled()) }
+    val initialTime = remember { viewModel.getDailyReminderTime() }
+    var reminderHour by remember { mutableStateOf(initialTime.first) }
+    var reminderMinute by remember { mutableStateOf(initialTime.second) }
+
+    fun formatTime(hour: Int, minute: Int): String {
+        val h = if (hour == 0) 12 else if (hour > 12) hour - 12 else hour
+        val amPm = if (hour >= 12) "PM" else "AM"
+        val m = if (minute < 10) "0$minute" else "$minute"
+        return "$h:$m $amPm"
+    }
+
+    val requestNotificationPermission = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            viewModel.scheduleDailyReminder(reminderHour, reminderMinute)
+            isReminderEnabled = true
+            Toast.makeText(context, "Daily reminder active for ${formatTime(reminderHour, reminderMinute)}!", Toast.LENGTH_SHORT).show()
+        } else {
+            isReminderEnabled = false
+            Toast.makeText(context, "Notification permission is required for reminders", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Export Document Launcher: prompts user to save FocusGrove_Backup.json
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                try {
+                    val json = viewModel.exportDatabaseToJson()
+                    context.contentResolver.openOutputStream(uri)?.use { os ->
+                        os.write(json.toByteArray(Charsets.UTF_8))
+                    }
+                    Toast.makeText(context, "Backup saved successfully", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to save backup: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    // Import Document Launcher: lets user pick their .json backup file
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch {
+                try {
+                    val json = context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                        inputStream.bufferedReader(Charsets.UTF_8).readText()
+                    }
+                    if (json.isNullOrBlank()) {
+                        Toast.makeText(context, "Backup file is empty", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
+                    val success = viewModel.importDatabaseFromJson(json)
+                    if (success) {
+                        Toast.makeText(context, "Data restored successfully. Please restart the app.", Toast.LENGTH_LONG).show()
+                    } else {
+                        Toast.makeText(context, "Invalid JSON backup format. Please verify your file.", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Failed to restore backup: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     BackHandler {
         onClose()
@@ -312,6 +395,194 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+
+            // Section: Study Notifications (Daily Reminder - WorkManager)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.outline)
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.NotificationsActive,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Daily Study Reminder",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Push notification scheduled daily with Android WorkManager",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = if (isReminderEnabled) "🔔 Reminder Active (${formatTime(reminderHour, reminderMinute)})" else "🔕 Reminder Off",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "\"Time to focus! Plant a seed and grow your forest.\"",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Switch(
+                            checked = isReminderEnabled,
+                            onCheckedChange = { enable ->
+                                if (enable) {
+                                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                        requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        viewModel.scheduleDailyReminder(reminderHour, reminderMinute)
+                                        isReminderEnabled = true
+                                        Toast.makeText(context, "Daily reminder scheduled for ${formatTime(reminderHour, reminderMinute)}", Toast.LENGTH_SHORT).show()
+                                    }
+                                } else {
+                                    viewModel.cancelDailyReminder()
+                                    isReminderEnabled = false
+                                    Toast.makeText(context, "Daily reminder cancelled", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            modifier = Modifier.testTag("daily_reminder_switch")
+                        )
+                    }
+
+                    if (isReminderEnabled) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Reminder Time: ${formatTime(reminderHour, reminderMinute)}",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    TimePickerDialog(
+                                        context,
+                                        { _, selectedHour, selectedMinute ->
+                                            reminderHour = selectedHour
+                                            reminderMinute = selectedMinute
+                                            viewModel.scheduleDailyReminder(selectedHour, selectedMinute)
+                                            Toast.makeText(context, "Reminder time updated to ${formatTime(selectedHour, selectedMinute)}", Toast.LENGTH_SHORT).show()
+                                        },
+                                        reminderHour,
+                                        reminderMinute,
+                                        false
+                                    ).show()
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.testTag("btn_change_reminder_time")
+                            ) {
+                                Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Change Time", fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Section: Backup, Export & Import (Room Database JSON)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                border = androidx.compose.foundation.BorderStroke(2.dp, Color(0xFF10B981))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CloudDone,
+                            contentDescription = null,
+                            tint = Color(0xFF10B981),
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "Backup, Export & Import",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "Full Room DB backup (trees, coins, themes, syllabus)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Safely save your entire focus journey into a JSON file or restore your data across app reinstalls without losing your hard-earned forest.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                exportLauncher.launch("FocusGrove_Backup.json")
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_export_data"),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Export Data", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                importLauncher.launch(arrayOf("application/json", "text/*"))
+                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_import_data"),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Import Data", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
 

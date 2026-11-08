@@ -17,21 +17,30 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import android.content.Intent
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Park
 import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.SentimentDissatisfied
 import androidx.compose.material.icons.filled.SentimentSatisfiedAlt
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material.icons.filled.Timer
+import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -62,17 +71,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.example.data.model.AmbientSound
+import com.example.data.model.AppCustomFont
+import com.example.data.model.AppThemePalette
 import com.example.data.model.TreeSpecies
 import com.example.data.model.TreeStatus
 import com.example.ui.MainViewModel
 import com.example.ui.components.TreeCanvas
+import com.example.ui.theme.CinzelFontFamily
 import com.example.ui.theme.CoinGold
 import com.example.ui.theme.DeadTreeDark
 import com.example.ui.theme.DeadTreeGrey
 import com.example.ui.theme.ForestGreenPrimary
 import com.example.ui.theme.LivingCherryPink
 import com.example.ui.theme.LivingPineGreen
+import com.example.ui.theme.PacificoFontFamily
+import com.example.ui.theme.PlayfairFontFamily
+import com.example.ui.theme.PixelifySansFontFamily
+import com.example.ui.theme.PoppinsFontFamily
+import com.example.ui.theme.RighteousFontFamily
 
 @Composable
 fun AnalysisShopScreen(
@@ -102,6 +121,31 @@ fun AnalysisShopScreen(
         economy?.unlockedPets?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DUCK")
     }
     val equippedPetId = economy?.equippedPet ?: "DUCK"
+
+    val unlockedThemesSet = remember(economy?.unlockedThemes) {
+        economy?.unlockedThemes?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DEFAULT")
+    }
+    val equippedThemeId = economy?.equippedTheme ?: "DEFAULT"
+
+    val unlockedFontsSet = remember(economy?.unlockedFonts) {
+        economy?.unlockedFonts?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DEFAULT")
+    }
+    val equippedFontId = economy?.equippedFont ?: "DEFAULT"
+
+    val bgPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            try {
+                context.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            } catch (_: Exception) {}
+            viewModel.setCustomBackgroundUri(uri)
+            Toast.makeText(context, "Timer wallpaper updated!", Toast.LENGTH_SHORT).show()
+        }
+    }
 
     val survivalRate = if (totalCount > 0) {
         ((aliveCount.toFloat() / totalCount.toFloat()) * 100).toInt()
@@ -198,6 +242,12 @@ fun AnalysisShopScreen(
                         onClick = { selectedTab = 1 },
                         text = { Text("Grove Shop", fontWeight = FontWeight.Bold) },
                         icon = { Icon(Icons.Default.ShoppingBag, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                    )
+                    Tab(
+                        selected = selectedTab == 2,
+                        onClick = { selectedTab = 2 },
+                        text = { Text("Customization", fontWeight = FontWeight.Bold) },
+                        icon = { Icon(Icons.Default.Palette, contentDescription = null, modifier = Modifier.size(18.dp)) }
                     )
                 }
             }
@@ -938,6 +988,509 @@ fun AnalysisShopScreen(
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
                                             Text("${sound.cost} Coins", fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (selectedTab == 2) {
+                // Section 3: Customization (Themes, Fonts, Wallpaper)
+                item {
+                    ElevatedCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.elevatedCardColors(
+                            containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Palette,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    text = "Grove Atelier",
+                                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Personalize your study atmosphere with ambient color themes, artisanal fonts, and custom timer wallpapers.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 1. Color Themes Section
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Palette,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Color Themes",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        AppThemePalette.entries.forEach { theme ->
+                            val isEquipped = equippedThemeId.equals(theme.id, ignoreCase = true)
+                            val isUnlocked = theme == AppThemePalette.DEFAULT || unlockedThemesSet.contains(theme.id.uppercase())
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isEquipped)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                    else
+                                        MaterialTheme.colorScheme.surface
+                                ),
+                                border = if (isEquipped)
+                                    androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                                else
+                                    androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        modifier = Modifier.weight(1f),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Color Swatch
+                                        Row(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                                .padding(4.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                        ) {
+                                            when (theme) {
+                                                AppThemePalette.DEFAULT -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF2E7D32), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE91E63), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF0288D1), CircleShape))
+                                                }
+                                                AppThemePalette.PINK -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFF5277), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE91E63), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFFE3E8), CircleShape))
+                                                }
+                                                AppThemePalette.BLUE -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF2196F3), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF00BCD4), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE1F5FE), CircleShape))
+                                                }
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.width(12.dp))
+
+                                        Column {
+                                            Text(
+                                                text = theme.displayName,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = theme.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(8.dp))
+
+                                    when {
+                                        isEquipped -> {
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = MaterialTheme.colorScheme.primary
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.Check,
+                                                        contentDescription = null,
+                                                        tint = Color.White,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text(
+                                                        text = "Equipped",
+                                                        style = MaterialTheme.typography.labelSmall.copy(
+                                                            color = Color.White,
+                                                            fontWeight = FontWeight.Bold
+                                                        )
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        isUnlocked -> {
+                                            OutlinedButton(
+                                                onClick = { viewModel.equipTheme(theme) },
+                                                shape = RoundedCornerShape(8.dp),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                            ) {
+                                                Text("Equip", fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                        else -> {
+                                            Button(
+                                                onClick = {
+                                                    viewModel.purchaseTheme(theme) { success ->
+                                                        if (success) {
+                                                            Toast.makeText(context, "Unlocked ${theme.displayName}!", Toast.LENGTH_SHORT).show()
+                                                        } else {
+                                                            Toast.makeText(context, "Not enough coins! Need ${theme.cost} coins.", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    }
+                                                },
+                                                shape = RoundedCornerShape(8.dp),
+                                                colors = ButtonDefaults.buttonColors(
+                                                    containerColor = MaterialTheme.colorScheme.secondary
+                                                ),
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MonetizationOn,
+                                                    contentDescription = null,
+                                                    tint = CoinGold,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(4.dp))
+                                                Text("${theme.cost} Coins", fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 2. Artisanal Fonts Section
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.TextFields,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Artisanal Fonts",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        AppCustomFont.entries.forEach { font ->
+                            val isEquipped = equippedFontId.equals(font.id, ignoreCase = true)
+                            val isUnlocked = font == AppCustomFont.DEFAULT || unlockedFontsSet.contains(font.id.uppercase())
+                            val sampleFontFamily = when (font) {
+                                AppCustomFont.DEFAULT -> PixelifySansFontFamily
+                                AppCustomFont.FANCY -> CinzelFontFamily
+                                AppCustomFont.CURSIVE -> PacificoFontFamily
+                                AppCustomFont.RETRO -> RighteousFontFamily
+                                AppCustomFont.MODERN -> PoppinsFontFamily
+                                AppCustomFont.BOLD_SERIF -> PlayfairFontFamily
+                            }
+
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = if (isEquipped)
+                                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                                    else
+                                        MaterialTheme.colorScheme.surface
+                                ),
+                                border = if (isEquipped)
+                                    androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                                else
+                                    androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = font.displayName,
+                                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Text(
+                                                text = font.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+
+                                        Spacer(modifier = Modifier.width(8.dp))
+
+                                        when {
+                                            isEquipped -> {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = MaterialTheme.colorScheme.primary
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Check,
+                                                            contentDescription = null,
+                                                            tint = Color.White,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                        Spacer(modifier = Modifier.width(4.dp))
+                                                        Text(
+                                                            text = "Equipped",
+                                                            style = MaterialTheme.typography.labelSmall.copy(
+                                                                color = Color.White,
+                                                                fontWeight = FontWeight.Bold
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                            isUnlocked -> {
+                                                OutlinedButton(
+                                                    onClick = { viewModel.equipFont(font) },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text("Equip", fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                            else -> {
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.purchaseFont(font) { success ->
+                                                            if (success) {
+                                                                Toast.makeText(context, "Unlocked ${font.displayName} font!", Toast.LENGTH_SHORT).show()
+                                                            } else {
+                                                                Toast.makeText(context, "Not enough coins! Need ${font.cost} coins.", Toast.LENGTH_SHORT).show()
+                                                            }
+                                                        }
+                                                    },
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    colors = ButtonDefaults.buttonColors(
+                                                        containerColor = MaterialTheme.colorScheme.secondary
+                                                    ),
+                                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.MonetizationOn,
+                                                        contentDescription = null,
+                                                        tint = CoinGold,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(4.dp))
+                                                    Text("${font.cost} Coins", fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Sample preview box
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(
+                                            text = "25:00 • Focus Grove • Deep Work",
+                                            fontFamily = sampleFontFamily,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 16.sp,
+                                            color = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 3. Timer Wallpaper Section
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Wallpaper,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Timer Wallpaper",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
+
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(14.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    text = "Custom Background Atmosphere",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    text = "Choose your own photo or aesthetic image to sit behind the focus timer. Rendered with an eye-comfort 60% dark overlay for clear timer visibility without performance overhead.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // Thumbnail preview
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(110.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val bgUriString = economy?.customBackgroundUri
+                                    if (!bgUriString.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = Uri.parse(bgUriString),
+                                            contentDescription = "Current Wallpaper",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .background(Color.Black.copy(alpha = 0.6f))
+                                        )
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                text = "25:00",
+                                                color = Color.White,
+                                                fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text(
+                                                text = "Custom Wallpaper Active",
+                                                color = Color.White.copy(alpha = 0.8f),
+                                                fontSize = 11.sp
+                                            )
+                                        }
+                                    } else {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Icon(
+                                                imageVector = Icons.Default.Image,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(32.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = "Default Forest Gradient",
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Button(
+                                        onClick = { bgPickerLauncher.launch("image/*") },
+                                        modifier = Modifier.weight(1f),
+                                        shape = RoundedCornerShape(8.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Image,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            if (economy?.customBackgroundUri != null) "Change Photo" else "Pick from Gallery",
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    if (economy?.customBackgroundUri != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                viewModel.setCustomBackgroundUri(null)
+                                                Toast.makeText(context, "Reset to default background", Toast.LENGTH_SHORT).show()
+                                            },
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Reset",
+                                                tint = MaterialTheme.colorScheme.error,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                "Reset",
+                                                color = MaterialTheme.colorScheme.error,
+                                                fontWeight = FontWeight.Bold
+                                            )
                                         }
                                     }
                                 }

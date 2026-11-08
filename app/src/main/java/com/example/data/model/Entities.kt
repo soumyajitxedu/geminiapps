@@ -110,6 +110,40 @@ data class ChapterProgress(
         }
 }
 
+enum class AppThemePalette(
+    val id: String,
+    val displayName: String,
+    val cost: Int,
+    val description: String
+) {
+    DEFAULT("DEFAULT", "Forest Emerald", 0, "Calm evergreen forest tones"),
+    PINK("PINK", "Pink Palette", 100, "Sweet cherry blossom pastel hues"),
+    BLUE("BLUE", "Blue Palette", 150, "Deep oceanic sapphire twilight shades");
+
+    companion object {
+        fun fromId(id: String): AppThemePalette = entries.find { it.id.equals(id, ignoreCase = true) } ?: DEFAULT
+    }
+}
+
+enum class AppCustomFont(
+    val id: String,
+    val displayName: String,
+    val cost: Int,
+    val description: String,
+    val fontResName: String
+) {
+    DEFAULT("DEFAULT", "Pixel / System", 0, "Default retro pixel or system typography", "pixelify_sans"),
+    FANCY("FANCY", "Fancy", 100, "Elegant classical serif typography (Cinzel)", "cinzel"),
+    CURSIVE("CURSIVE", "Cursive", 200, "Flowing handwritten script (Pacifico)", "pacifico"),
+    RETRO("RETRO", "Retro", 250, "80s synthwave arcade style (Righteous)", "righteous"),
+    MODERN("MODERN", "Modern", 300, "Clean contemporary geometric sans (Poppins)", "poppins"),
+    BOLD_SERIF("BOLD_SERIF", "Bold Serif", 400, "Rich editorial literary serif (Playfair)", "playfair_display");
+
+    companion object {
+        fun fromId(id: String): AppCustomFont = entries.find { it.id.equals(id, ignoreCase = true) } ?: DEFAULT
+    }
+}
+
 @Entity(tableName = "economy")
 data class UserEconomy(
     @PrimaryKey
@@ -120,7 +154,12 @@ data class UserEconomy(
     val demoModeEnabled: Boolean = false,
     val activeAmbientSound: String = "NONE", // NONE, RAIN, LOFI
     val unlockedPets: String = "DUCK", // Comma-separated (DUCK, SHEEP, RABBIT)
-    val equippedPet: String = "DUCK" // Currently equipped pet ID or "NONE"
+    val equippedPet: String = "DUCK", // Currently equipped pet ID or "NONE"
+    val unlockedThemes: String = "DEFAULT", // Comma-separated (DEFAULT, PINK, BLUE)
+    val equippedTheme: String = "DEFAULT", // DEFAULT, PINK, BLUE
+    val unlockedFonts: String = "DEFAULT", // Comma-separated (DEFAULT, FANCY, CURSIVE, RETRO, MODERN, BOLD_SERIF)
+    val equippedFont: String = "DEFAULT", // DEFAULT, FANCY, etc.
+    val customBackgroundUri: String? = null // Persisted Content URI for custom timer background
 )
 
 @Entity(tableName = "quiz_results")

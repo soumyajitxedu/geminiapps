@@ -39,9 +39,12 @@ import com.example.data.model.FlashcardItem
 import com.example.data.model.MindMapData
 import com.example.data.model.MindMapNode
 import com.example.data.model.StudyToolParser
+import com.example.data.model.AppCustomFont
+import com.example.data.model.AppThemePalette
 import com.example.data.model.PetSpecies
 import com.example.data.model.SavedFlashcardDeckEntity
 import com.example.data.model.WrongQuizAnswer
+import com.example.service.DailyReminderWorker
 import com.example.service.FocusTimerService
 import com.example.audio.SoundEffectManager
 import com.example.ui.notification.TimerNotificationManager
@@ -521,6 +524,84 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             repository.equipPet(pet)
             soundEffectManager.playUiClick()
         }
+    }
+
+    // Theme & Font Customization
+    fun purchaseTheme(theme: AppThemePalette, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = repository.purchaseTheme(theme)
+            if (success) {
+                soundEffectManager.playTreeGrownChime()
+            }
+            onResult(success)
+        }
+    }
+
+    fun equipTheme(theme: AppThemePalette) {
+        viewModelScope.launch {
+            repository.equipTheme(theme)
+            soundEffectManager.playUiClick()
+        }
+    }
+
+    fun purchaseFont(font: AppCustomFont, onResult: (Boolean) -> Unit) {
+        viewModelScope.launch {
+            val success = repository.purchaseFont(font)
+            if (success) {
+                soundEffectManager.playTreeGrownChime()
+            }
+            onResult(success)
+        }
+    }
+
+    fun equipFont(font: AppCustomFont) {
+        viewModelScope.launch {
+            repository.equipFont(font)
+            soundEffectManager.playUiClick()
+        }
+    }
+
+    fun setCustomBackgroundUri(uri: android.net.Uri?) {
+        viewModelScope.launch {
+            repository.setCustomBackgroundUri(uri?.toString())
+            soundEffectManager.playUiClick()
+        }
+    }
+
+    // Daily Study Reminder
+    fun scheduleDailyReminder(hour: Int, minute: Int) {
+        DailyReminderWorker.schedule(getApplication(), hour, minute)
+    }
+
+    fun cancelDailyReminder() {
+        DailyReminderWorker.cancel(getApplication())
+    }
+
+    fun isDailyReminderEnabled(): Boolean {
+        val prefs = getApplication<Application>().getSharedPreferences(
+            DailyReminderWorker.PREFS_NAME,
+            android.content.Context.MODE_PRIVATE
+        )
+        return prefs.getBoolean(DailyReminderWorker.KEY_ENABLED, false)
+    }
+
+    fun getDailyReminderTime(): Pair<Int, Int> {
+        val prefs = getApplication<Application>().getSharedPreferences(
+            DailyReminderWorker.PREFS_NAME,
+            android.content.Context.MODE_PRIVATE
+        )
+        val h = prefs.getInt(DailyReminderWorker.KEY_HOUR, 19)
+        val m = prefs.getInt(DailyReminderWorker.KEY_MINUTE, 0)
+        return Pair(h, m)
+    }
+
+    // Full Room Database Backup & Restore
+    suspend fun exportDatabaseToJson(): String {
+        return repository.exportDatabaseToJson()
+    }
+
+    suspend fun importDatabaseFromJson(jsonString: String): Boolean {
+        return repository.importDatabaseFromJson(jsonString)
     }
 
     fun startRevisionSession(chapter: String) {
