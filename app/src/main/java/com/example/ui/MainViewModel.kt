@@ -50,6 +50,7 @@ import com.example.audio.SoundEffectManager
 import com.example.ui.notification.TimerNotificationManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -90,11 +91,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val soundEffectManager = SoundEffectManager(application)
     val notificationManager = TimerNotificationManager(application)
     val shopManager = com.example.data.ShopManager.getInstance(application)
+    val coins: StateFlow<Int> = shopManager.coins
     val shopCoins: StateFlow<Int> = shopManager.coins
     val equippedTheme: StateFlow<String> = shopManager.equippedTheme
     val equippedFont: StateFlow<String> = shopManager.equippedFont
     val equippedPet: StateFlow<String> = shopManager.equippedPet
     val dailyPomodoroCount: StateFlow<Int> = shopManager.dailyPomodoroCount
+    val isDarkTheme: StateFlow<Boolean> = shopManager.isDarkTheme
+    val usePixelFont: StateFlow<Boolean> = shopManager.usePixelFont
+    val bgOverlayDarkness: StateFlow<Float> = shopManager.bgOverlayDarkness
 
     val userProfile: StateFlow<com.example.data.model.UserProfileEntity?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -175,9 +180,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _selectedChapter = MutableStateFlow("Force")
     val selectedChapter: StateFlow<String> = _selectedChapter.asStateFlow()
-
-    private val _isDarkTheme = MutableStateFlow(false)
-    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
 
     private val _lastSessionResult = MutableStateFlow<SessionResult?>(null)
     val lastSessionResult: StateFlow<SessionResult?> = _lastSessionResult.asStateFlow()
@@ -498,7 +500,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Plant Hydration & Watering
     fun waterTree(treeId: Long, onChapterWatered: ((String) -> Unit)? = null) {
         val tree = trees.value.find { it.id == treeId }
+        val waterCost = 5
         viewModelScope.launch {
+            if (coins.value >= waterCost) {
+                shopManager.spendCoins(waterCost)
+            }
             repository.waterTree(treeId)
             soundEffectManager.playUiClick()
             if (tree != null && tree.chapterTag.isNotBlank()) {
@@ -508,7 +514,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun waterAllTrees() {
+        val waterCost = 10
         viewModelScope.launch {
+            if (coins.value >= waterCost) {
+                shopManager.spendCoins(waterCost)
+            }
             repository.waterAllTrees()
             soundEffectManager.playUiClick()
         }
@@ -524,6 +534,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val success = shopManager.purchasePet(pet.id, cost)
         if (success) {
             soundEffectManager.playTreeGrownChime()
+            viewModelScope.launch {
+                repository.setCoins(shopManager.coins.value)
+            }
         }
         onResult(success)
     }
@@ -532,6 +545,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val success = shopManager.purchasePet(petId, cost)
         if (success) {
             soundEffectManager.playTreeGrownChime()
+            viewModelScope.launch {
+                repository.setCoins(shopManager.coins.value)
+            }
         }
         onResult(success)
     }
@@ -550,13 +566,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun purchaseTheme(theme: AppThemePalette, onResult: (Boolean) -> Unit) {
         val themeId = when (theme) {
             AppThemePalette.DEFAULT -> "NATURE"
-            AppThemePalette.PINK -> "NATURE"
-            AppThemePalette.BLUE -> "DARK"
+            AppThemePalette.PINK -> "PINK"
+            AppThemePalette.BLUE -> "BLUE"
         }
-        val cost = if (themeId == "DARK") 200 else 250
+        val cost = 200
         val success = shopManager.purchaseTheme(themeId, cost)
         if (success) {
             soundEffectManager.playTreeGrownChime()
+            viewModelScope.launch {
+                repository.setCoins(shopManager.coins.value)
+            }
         }
         onResult(success)
     }
@@ -565,6 +584,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val success = shopManager.purchaseTheme(themeId, cost)
         if (success) {
             soundEffectManager.playTreeGrownChime()
+            viewModelScope.launch {
+                repository.setCoins(shopManager.coins.value)
+            }
         }
         onResult(success)
     }
@@ -572,8 +594,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun equipTheme(theme: AppThemePalette) {
         val themeId = when (theme) {
             AppThemePalette.DEFAULT -> "NATURE"
-            AppThemePalette.PINK -> "NATURE"
-            AppThemePalette.BLUE -> "DARK"
+            AppThemePalette.PINK -> "PINK"
+            AppThemePalette.BLUE -> "BLUE"
         }
         shopManager.equipTheme(themeId)
         soundEffectManager.playUiClick()
@@ -587,10 +609,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     // Font Customization (Stored via SharedPreferences in ShopManager)
     fun purchaseFont(font: AppCustomFont, onResult: (Boolean) -> Unit) {
         val fontId = if (font == AppCustomFont.CURSIVE) "HANDWRITTEN" else "PIXEL"
-        val cost = if (fontId == "HANDWRITTEN") 450 else 350
+        val cost = 250
         val success = shopManager.purchaseFont(fontId, cost)
         if (success) {
             soundEffectManager.playTreeGrownChime()
+            viewModelScope.launch {
+                repository.setCoins(shopManager.coins.value)
+            }
         }
         onResult(success)
     }
@@ -599,6 +624,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val success = shopManager.purchaseFont(fontId, cost)
         if (success) {
             soundEffectManager.playTreeGrownChime()
+            viewModelScope.launch {
+                repository.setCoins(shopManager.coins.value)
+            }
         }
         onResult(success)
     }
@@ -690,6 +718,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             repository.checkAndInitializeData(application)
         }
+        viewModelScope.launch {
+            repository.economy.filterNotNull().collect { econ ->
+                if (econ.coins > shopManager.coins.value) {
+                    shopManager.setCoins(econ.coins)
+                } else if (shopManager.coins.value > econ.coins) {
+                    repository.addCoins(shopManager.coins.value - econ.coins)
+                }
+            }
+        }
     }
 
     fun setTimerMode(mode: FocusTimerMode) {
@@ -738,11 +775,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setDarkTheme(enabled: Boolean) {
-        _isDarkTheme.value = enabled
+        shopManager.setDarkTheme(enabled)
     }
 
     fun toggleDarkTheme() {
-        _isDarkTheme.value = !_isDarkTheme.value
+        shopManager.setDarkTheme(!shopManager.isDarkTheme.value)
+    }
+
+    fun setBgOverlayDarkness(darkness: Float) {
+        shopManager.setBgOverlayDarkness(darkness)
     }
 
     fun startTimer() {
@@ -893,6 +934,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val chapter = _selectedChapter.value
 
         _timerStatus.value = TimerStatus.COMPLETED
+        addCoins(10)
 
         viewModelScope.launch {
             repository.recordSession(
@@ -1023,11 +1065,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         soundEffectManager.playUiSelect()
     }
 
-    fun addDebugCoins(amount: Int = 1000) {
+    fun addCoins(amount: Int) {
+        shopManager.addCoins(amount)
         viewModelScope.launch {
             repository.addCoins(amount)
-            addDebugLog("[Debug] Added $amount debug coins")
         }
+    }
+
+    fun addDebugCoins(amount: Int = 1000) {
+        addCoins(amount)
+        addDebugLog("[Debug] Added $amount debug coins")
         soundEffectManager.playUiSelect()
     }
 
@@ -1059,9 +1106,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     // Debug Menu Actions
     fun addTestCoins(amount: Int = 100) {
-        viewModelScope.launch {
-            repository.addCoins(amount)
-        }
+        addCoins(amount)
         vibrate(100)
     }
 

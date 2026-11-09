@@ -135,6 +135,7 @@ fun TimerScreen(
     val activeQuoteIndex by viewModel.activeQuoteIndex.collectAsStateWithLifecycle()
     val activeGratitudeIndex by viewModel.activeGratitudeIndex.collectAsStateWithLifecycle()
     val equippedPet by viewModel.equippedPet.collectAsStateWithLifecycle()
+    val bgOverlayDarkness by viewModel.bgOverlayDarkness.collectAsStateWithLifecycle()
 
     val currentQuote = viewModel.motivationalQuotes.getOrElse(activeQuoteIndex) { "Stay focused!" }
     val currentGratitude = viewModel.gratitudePrompts.getOrElse(activeGratitudeIndex) { "What are you thankful for today?" }
@@ -239,7 +240,7 @@ fun TimerScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.6f))
+                    .background(Color.Black.copy(alpha = bgOverlayDarkness))
             )
         }
 

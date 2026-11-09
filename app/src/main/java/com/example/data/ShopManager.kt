@@ -27,6 +27,9 @@ class ShopManager(context: Context) {
         private const val KEY_EQUIPPED_PET = "key_equipped_pet"
         private const val KEY_POMODORO_COUNT = "key_pomodoro_count"
         private const val KEY_POMODORO_DATE = "key_pomodoro_date"
+        private const val KEY_IS_DARK_THEME = "key_is_dark_theme"
+        private const val KEY_USE_PIXEL_FONT = "key_use_pixel_font"
+        private const val KEY_BG_OVERLAY_DARKNESS = "key_bg_overlay_darkness"
 
         @Volatile
         private var INSTANCE: ShopManager? = null
@@ -42,7 +45,7 @@ class ShopManager(context: Context) {
     val coins: StateFlow<Int> = _coins.asStateFlow()
 
     private val _unlockedThemes = MutableStateFlow(
-        prefs.getStringSet(KEY_UNLOCKED_THEMES, setOf("NATURE")) ?: setOf("NATURE")
+        prefs.getStringSet(KEY_UNLOCKED_THEMES, setOf("NATURE", "DEFAULT")) ?: setOf("NATURE", "DEFAULT")
     )
     val unlockedThemes: StateFlow<Set<String>> = _unlockedThemes.asStateFlow()
 
@@ -52,7 +55,7 @@ class ShopManager(context: Context) {
     val equippedTheme: StateFlow<String> = _equippedTheme.asStateFlow()
 
     private val _unlockedFonts = MutableStateFlow(
-        prefs.getStringSet(KEY_UNLOCKED_FONTS, setOf("PIXEL")) ?: setOf("PIXEL")
+        prefs.getStringSet(KEY_UNLOCKED_FONTS, setOf("PIXEL", "DEFAULT")) ?: setOf("PIXEL", "DEFAULT")
     )
     val unlockedFonts: StateFlow<Set<String>> = _unlockedFonts.asStateFlow()
 
@@ -73,6 +76,15 @@ class ShopManager(context: Context) {
 
     private val _dailyPomodoroCount = MutableStateFlow(getTodayPomodoroCount())
     val dailyPomodoroCount: StateFlow<Int> = _dailyPomodoroCount.asStateFlow()
+
+    private val _isDarkTheme = MutableStateFlow(prefs.getBoolean(KEY_IS_DARK_THEME, false))
+    val isDarkTheme: StateFlow<Boolean> = _isDarkTheme.asStateFlow()
+
+    private val _usePixelFont = MutableStateFlow(prefs.getBoolean(KEY_USE_PIXEL_FONT, true))
+    val usePixelFont: StateFlow<Boolean> = _usePixelFont.asStateFlow()
+
+    private val _bgOverlayDarkness = MutableStateFlow(prefs.getFloat(KEY_BG_OVERLAY_DARKNESS, 0.50f))
+    val bgOverlayDarkness: StateFlow<Float> = _bgOverlayDarkness.asStateFlow()
 
     private fun getTodayDateString(): String {
         return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
@@ -102,6 +114,11 @@ class ShopManager(context: Context) {
         val newBalance = _coins.value + amount
         prefs.edit().putInt(KEY_COINS, newBalance).apply()
         _coins.value = newBalance
+    }
+
+    fun setCoins(amount: Int) {
+        prefs.edit().putInt(KEY_COINS, amount).apply()
+        _coins.value = amount
     }
 
     fun spendCoins(amount: Int): Boolean {
@@ -178,5 +195,21 @@ class ShopManager(context: Context) {
         val id = petId.uppercase()
         prefs.edit().putString(KEY_EQUIPPED_PET, id).apply()
         _equippedPet.value = id
+    }
+
+    fun setDarkTheme(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_IS_DARK_THEME, enabled).apply()
+        _isDarkTheme.value = enabled
+    }
+
+    fun setUsePixelFont(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_PIXEL_FONT, enabled).apply()
+        _usePixelFont.value = enabled
+    }
+
+    fun setBgOverlayDarkness(darkness: Float) {
+        val clamped = darkness.coerceIn(0f, 1f)
+        prefs.edit().putFloat(KEY_BG_OVERLAY_DARKNESS, clamped).apply()
+        _bgOverlayDarkness.value = clamped
     }
 }

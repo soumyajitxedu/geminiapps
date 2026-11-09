@@ -257,14 +257,18 @@ val SystemTypography = Typography()
 val Typography = PixelTypography
 
 fun getAppTypography(equippedFont: String = "DEFAULT", usePixelFont: Boolean = true): Typography {
+    // When System Default is selected, cleanly revert to the standard Android font
+    if (!usePixelFont || equippedFont.equals("SYSTEM", ignoreCase = true) || equippedFont.equals("DEFAULT_SYSTEM", ignoreCase = true)) {
+        return Typography()
+    }
     val family = when (equippedFont.uppercase()) {
-        "PIXEL" -> PixelifySansFontFamily
-        "HANDWRITTEN", "CURSIVE" -> PacificoFontFamily
-        "FANCY" -> CinzelFontFamily
         "RETRO" -> RighteousFontFamily
-        "MODERN" -> PoppinsFontFamily
-        "BOLD_SERIF" -> PlayfairFontFamily
-        else -> if (usePixelFont) PixelifySansFontFamily else FontFamily.Default
+        "FANCY" -> CinzelFontFamily
+        "HANDWRITTEN" -> PacificoFontFamily
+        "CURSIVE" -> PlayfairFontFamily
+        "STYLIZED" -> PoppinsFontFamily
+        "PIXEL" -> PixelifySansFontFamily
+        else -> PixelifySansFontFamily
     }
     return buildTypographyForFont(family)
 }

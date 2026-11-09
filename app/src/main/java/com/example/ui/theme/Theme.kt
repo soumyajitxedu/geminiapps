@@ -131,6 +131,43 @@ private val BlueDarkColorScheme = darkColorScheme(
     outline = Color(0xFF64B5F6)
 )
 
+private val YellowLightColorScheme = lightColorScheme(
+    primary = Color(0xFFD97706),
+    onPrimary = Color.White,
+    primaryContainer = Color(0xFFFEF3C7),
+    onPrimaryContainer = Color(0xFF78350F),
+    secondary = Color(0xFFF59E0B),
+    onSecondary = Color.Black,
+    secondaryContainer = Color(0xFFFDE68A),
+    onSecondaryContainer = Color(0xFF78350F),
+    tertiary = Color(0xFFB45309),
+    onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFFFFBEB),
+    background = Color(0xFFFFFDF5),
+    onBackground = PixelTextDark,
+    surface = Color.White,
+    onSurface = PixelTextDark,
+    surfaceVariant = Color(0xFFFEF9C3),
+    onSurfaceVariant = PixelTextMuted,
+    outline = Color(0xFFD97706)
+)
+
+private val YellowDarkColorScheme = darkColorScheme(
+    primary = Color(0xFFFBBF24),
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF78350F),
+    onPrimaryContainer = Color(0xFFFEF3C7),
+    secondary = Color(0xFFF59E0B),
+    onSecondary = Color.Black,
+    background = Color(0xFF261D0C),
+    onBackground = Color(0xFFFEF9C3),
+    surface = Color(0xFF332712),
+    onSurface = Color(0xFFFEF9C3),
+    surfaceVariant = Color(0xFF453418),
+    onSurfaceVariant = Color(0xFFD4AF37),
+    outline = Color(0xFFFBBF24)
+)
+
 @Composable
 fun FocusGroveTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -141,10 +178,11 @@ fun FocusGroveTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when (equippedTheme.uppercase()) {
-        "DARK" -> PixelDarkColorScheme
-        "NATURE" -> PixelLightColorScheme
-        "PINK" -> if (darkTheme) PinkDarkColorScheme else PinkLightColorScheme
         "BLUE" -> if (darkTheme) BlueDarkColorScheme else BlueLightColorScheme
+        "PINK" -> if (darkTheme) PinkDarkColorScheme else PinkLightColorScheme
+        "YELLOW" -> if (darkTheme) YellowDarkColorScheme else YellowLightColorScheme
+        "DARK" -> PixelDarkColorScheme
+        "NATURE", "DEFAULT" -> if (darkTheme) PixelDarkColorScheme else PixelLightColorScheme
         else -> if (darkTheme) PixelDarkColorScheme else PixelLightColorScheme
     }
 

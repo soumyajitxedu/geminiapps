@@ -87,6 +87,8 @@ fun ForestScreen(
 ) {
     val trees by viewModel.trees.collectAsStateWithLifecycle()
     val economy by viewModel.economy.collectAsStateWithLifecycle()
+    val coins by viewModel.coins.collectAsStateWithLifecycle()
+    val equippedPet by viewModel.equippedPet.collectAsStateWithLifecycle()
     val completedChapters by viewModel.completedChaptersCount.collectAsStateWithLifecycle()
     val totalChapters by viewModel.totalChaptersCount.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
@@ -252,7 +254,7 @@ fun ForestScreen(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "${economy?.coins ?: 0}",
+                                        text = "$coins",
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.onSurface
@@ -818,7 +820,7 @@ fun ForestScreen(
                 .padding(end = 16.dp, bottom = 16.dp)
         ) {
             com.example.ui.components.FloatingEquippedPet(
-                petSpeciesId = economy?.equippedPet ?: "DUCK",
+                petSpeciesId = equippedPet,
                 quotes = viewModel.motivationalQuotes
             )
         }

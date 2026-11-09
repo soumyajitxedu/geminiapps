@@ -108,11 +108,11 @@ fun SettingsScreen(
     val context = LocalContext.current
     val economy by viewModel.economy.collectAsStateWithLifecycle()
     val isDarkTheme by viewModel.isDarkTheme.collectAsStateWithLifecycle()
+    val usePixelFont by viewModel.usePixelFont.collectAsStateWithLifecycle()
+    val bgOverlayDarkness by viewModel.bgOverlayDarkness.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
     val customMinutes by viewModel.customMinutes.collectAsStateWithLifecycle()
     val demoModeEnabled = economy?.demoModeEnabled == true
-
-    val isPixelFont = userProfile?.usePixelFont ?: true
     var showProfileEditDialog by remember { mutableStateOf(false) }
 
     // Google Calendar State
@@ -324,20 +324,60 @@ fun SettingsScreen(
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = if (isPixelFont) "👾 Pixel Font (Active)" else "📱 System Default Font",
+                                text = if (usePixelFont) "👾 Custom Font (Active)" else "📱 System Default Font",
                                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
                             )
                             Text(
-                                text = "Globally toggle between cute 8-bit Pixelify Sans and clean Android System typography",
+                                text = if (usePixelFont) "Active custom font (Pixel, Retro, Fancy, etc.)" else "Revert to clean standard Android System typography",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
 
                         Switch(
-                            checked = isPixelFont,
+                            checked = usePixelFont,
                             onCheckedChange = { viewModel.setPixelFont(it) },
                             modifier = Modifier.testTag("font_toggle_switch")
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Background Overlay Darkness Slider
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "🖼️ Wallpaper Darkness Overlay",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Text(
+                                text = "${(bgOverlayDarkness * 100).toInt()}%",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Adjust darkness overlay (0% to 100%) for custom wallpapers on Timer screen to keep text readable",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        androidx.compose.material3.Slider(
+                            value = bgOverlayDarkness,
+                            onValueChange = { viewModel.setBgOverlayDarkness(it) },
+                            valueRange = 0f..1f,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("bg_overlay_slider")
                         )
                     }
                 }

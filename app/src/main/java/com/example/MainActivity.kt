@@ -32,8 +32,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val isDarkTheme by mainViewModel.isDarkTheme.collectAsStateWithLifecycle()
-            val userProfile by mainViewModel.userProfile.collectAsStateWithLifecycle()
-            val usePixelFont = userProfile?.usePixelFont ?: true
+            val usePixelFont by mainViewModel.usePixelFont.collectAsStateWithLifecycle()
             val equippedTheme by mainViewModel.equippedTheme.collectAsStateWithLifecycle()
             val equippedFont by mainViewModel.equippedFont.collectAsStateWithLifecycle()
 

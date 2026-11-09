@@ -454,6 +454,10 @@ class FocusGroveRepository(
         economyDao.addCoins(amount)
     }
 
+    suspend fun setCoins(amount: Int) = withContext(Dispatchers.IO) {
+        economyDao.setCoins(amount)
+    }
+
     suspend fun resetAllData() = withContext(Dispatchers.IO) {
         treeDao.clearAll()
         quizDao.clearAll()

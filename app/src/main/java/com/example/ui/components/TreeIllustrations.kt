@@ -64,20 +64,46 @@ fun TreeCanvas(
             if (isDead) {
                 drawPixelDeadTree(w, h)
             } else {
+                val saplingTint = when (species) {
+                    TreeSpecies.SAKURA, TreeSpecies.CHERRY_BLOSSOM -> Color(0xFFFF80AB)
+                    TreeSpecies.CRYSTAL_PINE -> Color(0xFF4FC3F7)
+                    else -> null
+                }
+
                 when {
-                    animatedGrowth < 0.25f -> {
-                        // Stage 1: Tiny Seed in dirt
-                        drawPixelSeed(w, h, animatedGrowth / 0.25f)
-                    }
-                    animatedGrowth < 0.55f -> {
-                        // Stage 2: Cute Sprout
-                        val sproutProgress = (animatedGrowth - 0.25f) / 0.3f
-                        drawPixelSprout(w, h, sproutProgress)
-                    }
                     animatedGrowth < 0.85f -> {
-                        // Stage 3: Small Growing Plant
-                        val plantProgress = (animatedGrowth - 0.55f) / 0.3f
-                        drawPixelSmallPlant(w, h, species, plantProgress)
+                        if (saplingTint != null) {
+                            drawContext.canvas.saveLayer(
+                                androidx.compose.ui.geometry.Rect(0f, 0f, w, h),
+                                androidx.compose.ui.graphics.Paint().apply {
+                                    colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(
+                                        saplingTint,
+                                        androidx.compose.ui.graphics.BlendMode.SrcAtop
+                                    )
+                                }
+                            )
+                        }
+
+                        when {
+                            animatedGrowth < 0.25f -> {
+                                // Stage 1: Tiny Seed in dirt
+                                drawPixelSeed(w, h, animatedGrowth / 0.25f)
+                            }
+                            animatedGrowth < 0.55f -> {
+                                // Stage 2: Cute Sprout
+                                val sproutProgress = (animatedGrowth - 0.25f) / 0.3f
+                                drawPixelSprout(w, h, sproutProgress)
+                            }
+                            else -> {
+                                // Stage 3: Small Growing Plant
+                                val plantProgress = (animatedGrowth - 0.55f) / 0.3f
+                                drawPixelSmallPlant(w, h, species, plantProgress)
+                            }
+                        }
+
+                        if (saplingTint != null) {
+                            drawContext.canvas.restore()
+                        }
                     }
                     else -> {
                         // Stage 4: Fully Grown Pixel Tree

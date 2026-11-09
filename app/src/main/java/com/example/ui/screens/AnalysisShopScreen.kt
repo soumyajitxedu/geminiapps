@@ -1059,14 +1059,17 @@ fun AnalysisShopScreen(
                         }
 
                         val themesList = listOf(
-                            Triple("NATURE", "Nature Green", 250 to "Lush emerald grove aesthetic"),
+                            Triple("BLUE", "Blue Sky", 200 to "Calming sapphire azure study aesthetic"),
+                            Triple("PINK", "Pink Blossom", 200 to "Sweet cherry blossom pastel aesthetic"),
+                            Triple("YELLOW", "Golden Yellow", 200 to "Warm uplifting sunny gold aesthetic"),
+                            Triple("NATURE", "Nature Green", 0 to "Classic emerald grove pixel palette"),
                             Triple("DARK", "Dark Mode", 200 to "High-contrast midnight twilight pixel palette")
                         )
 
                         themesList.forEach { (themeId, displayName, details) ->
                             val (cost, desc) = details
                             val isEquipped = equippedThemeId.equals(themeId, ignoreCase = true)
-                            val isUnlocked = themeId == "NATURE" || unlockedThemesSet.contains(themeId.uppercase())
+                            val isUnlocked = cost == 0 || themeId == "NATURE" || themeId == "DEFAULT" || unlockedThemesSet.contains(themeId.uppercase())
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1101,14 +1104,32 @@ fun AnalysisShopScreen(
                                                 .padding(4.dp),
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            if (themeId == "NATURE") {
-                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF2E7D32), CircleShape))
-                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF81C784), CircleShape))
-                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFFC8E6C9), CircleShape))
-                                            } else {
-                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF1E293B), CircleShape))
-                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF334155), CircleShape))
-                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF64748B), CircleShape))
+                                            when (themeId) {
+                                                "BLUE" -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF1E88E5), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF64B5F6), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFBBDEFB), CircleShape))
+                                                }
+                                                "PINK" -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE91E63), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFF48FB1), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFCE4EC), CircleShape))
+                                                }
+                                                "YELLOW" -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFF59E0B), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFCD34D), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFEF3C7), CircleShape))
+                                                }
+                                                "NATURE" -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF2E7D32), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF81C784), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFC8E6C9), CircleShape))
+                                                }
+                                                else -> {
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF1E293B), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF334155), CircleShape))
+                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF64748B), CircleShape))
+                                                }
                                             }
                                         }
 
@@ -1219,14 +1240,18 @@ fun AnalysisShopScreen(
                         }
 
                         val fontsList = listOf(
-                            Triple("PIXEL", "Pixel Art", Triple(350, "Classic 8-bit retro gaming typography", PixelifySansFontFamily)),
-                            Triple("HANDWRITTEN", "Handwritten", Triple(450, "Flowing cursive study notebook script", PacificoFontFamily))
+                            Triple("RETRO", "Retro (Righteous)", Triple(250, "Punchy 80s arcade style display", RighteousFontFamily)),
+                            Triple("FANCY", "Fancy (Cinzel)", Triple(250, "Classical Roman serif elegance", CinzelFontFamily)),
+                            Triple("HANDWRITTEN", "Handwritten (Pacifico)", Triple(250, "Flowing cursive brush script", PacificoFontFamily)),
+                            Triple("CURSIVE", "Cursive (Playfair)", Triple(250, "Editorial transitional serif aesthetic", PlayfairFontFamily)),
+                            Triple("STYLIZED", "Stylized (Poppins)", Triple(250, "Geometric modern rounded sans", PoppinsFontFamily)),
+                            Triple("PIXEL", "Pixel Art", Triple(0, "Classic 8-bit retro gaming typography", PixelifySansFontFamily))
                         )
 
                         fontsList.forEach { (fontId, displayName, details) ->
                             val (cost, desc, sampleFontFamily) = details
                             val isEquipped = equippedFontId.equals(fontId, ignoreCase = true)
-                            val isUnlocked = fontId == "PIXEL" || unlockedFontsSet.contains(fontId.uppercase())
+                            val isUnlocked = cost == 0 || fontId == "PIXEL" || unlockedFontsSet.contains(fontId.uppercase())
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),

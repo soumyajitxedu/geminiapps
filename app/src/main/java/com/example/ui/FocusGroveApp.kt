@@ -57,6 +57,25 @@ import androidx.compose.material.icons.outlined.LocalLibrary
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.ScheduleScreen
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.components.PixelArtEmblem
+import com.example.ui.theme.CoinGold
+
 enum class GroveScreen(
     val title: String,
     val selectedIcon: ImageVector,
@@ -72,6 +91,7 @@ enum class GroveScreen(
     ANALYSIS_SHOP("Shop", Icons.Filled.ShoppingBag, Icons.Outlined.ShoppingBag, "nav_shop")
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FocusGroveApp(
     viewModel: MainViewModel,
@@ -110,6 +130,84 @@ fun FocusGroveApp(
 
         Scaffold(
             modifier = modifier.fillMaxSize(),
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            PixelArtEmblem(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(6.dp))
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = when (currentScreen) {
+                                    GroveScreen.FOREST -> "Focus Grove"
+                                    GroveScreen.TIMER -> "Study Timer"
+                                    GroveScreen.SCHEDULE -> "Weekly Schedule"
+                                    GroveScreen.LIBRARY -> "Study Library"
+                                    GroveScreen.SYLLABUS -> "ICSE Syllabus"
+                                    GroveScreen.QUIZZES -> "Study Tools"
+                                    GroveScreen.ANALYSIS_SHOP -> "Grove Shop"
+                                },
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = com.example.ui.theme.PixelifySansFontFamily
+                                ),
+                                maxLines = 1
+                            )
+                        }
+                    },
+                    actions = {
+                        val coins by viewModel.coins.collectAsStateWithLifecycle()
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier
+                                .testTag("top_bar_coins")
+                                .border(1.dp, CoinGold.copy(alpha = 0.5f), RoundedCornerShape(16.dp))
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MonetizationOn,
+                                    contentDescription = "Coins",
+                                    tint = CoinGold,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "$coins",
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(
+                            onClick = {
+                                viewModel.soundEffectManager.playUiClick()
+                                isSettingsOpen = true
+                            },
+                            modifier = Modifier.testTag("forest_settings_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                )
+            },
             bottomBar = {
                 NavigationBar(
                     modifier = Modifier
