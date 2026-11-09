@@ -33,10 +33,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val isDarkTheme by mainViewModel.isDarkTheme.collectAsStateWithLifecycle()
             val userProfile by mainViewModel.userProfile.collectAsStateWithLifecycle()
-            val economy by mainViewModel.economy.collectAsStateWithLifecycle()
             val usePixelFont = userProfile?.usePixelFont ?: true
-            val equippedTheme = economy?.equippedTheme ?: "DEFAULT"
-            val equippedFont = economy?.equippedFont ?: "DEFAULT"
+            val equippedTheme by mainViewModel.equippedTheme.collectAsStateWithLifecycle()
+            val equippedFont by mainViewModel.equippedFont.collectAsStateWithLifecycle()
 
             FocusGroveTheme(
                 darkTheme = isDarkTheme,

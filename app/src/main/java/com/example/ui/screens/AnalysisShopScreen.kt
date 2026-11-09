@@ -111,26 +111,20 @@ fun AnalysisShopScreen(
 
     var selectedTab by remember { mutableStateOf(0) } // 0: Study Analytics, 1: Grove Shop
 
-    val coins = economy?.coins ?: 0
+    val coins by viewModel.shopCoins.collectAsStateWithLifecycle()
     val unlockedSet = remember(economy?.unlockedItems) {
         economy?.unlockedItems?.split(",")?.toSet() ?: setOf("OAK")
     }
     val selectedSpecies = TreeSpecies.fromId(economy?.selectedSpecies ?: "OAK")
     val activeSound = AmbientSound.fromId(economy?.activeAmbientSound ?: "NONE")
-    val unlockedPetsSet = remember(economy?.unlockedPets) {
-        economy?.unlockedPets?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DUCK")
-    }
-    val equippedPetId = economy?.equippedPet ?: "DUCK"
+    val unlockedPetsSet by viewModel.shopManager.unlockedPets.collectAsStateWithLifecycle()
+    val equippedPetId by viewModel.equippedPet.collectAsStateWithLifecycle()
 
-    val unlockedThemesSet = remember(economy?.unlockedThemes) {
-        economy?.unlockedThemes?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DEFAULT")
-    }
-    val equippedThemeId = economy?.equippedTheme ?: "DEFAULT"
+    val unlockedThemesSet by viewModel.shopManager.unlockedThemes.collectAsStateWithLifecycle()
+    val equippedThemeId by viewModel.equippedTheme.collectAsStateWithLifecycle()
 
-    val unlockedFontsSet = remember(economy?.unlockedFonts) {
-        economy?.unlockedFonts?.split(",")?.map { it.trim().uppercase() }?.toSet() ?: setOf("DEFAULT")
-    }
-    val equippedFontId = economy?.equippedFont ?: "DEFAULT"
+    val unlockedFontsSet by viewModel.shopManager.unlockedFonts.collectAsStateWithLifecycle()
+    val equippedFontId by viewModel.equippedFont.collectAsStateWithLifecycle()
 
     val bgPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -741,6 +735,11 @@ fun AnalysisShopScreen(
 
                 items(com.example.data.model.PetSpecies.entries.size) { index ->
                     val pet = com.example.data.model.PetSpecies.entries[index]
+                    val petCost = when (pet) {
+                        com.example.data.model.PetSpecies.DUCK -> 100
+                        com.example.data.model.PetSpecies.SHEEP -> 150
+                        com.example.data.model.PetSpecies.RABBIT -> 200
+                    }
                     val isUnlocked = unlockedPetsSet.contains(pet.id.uppercase())
                     val isEquipped = equippedPetId.equals(pet.id, ignoreCase = true)
 
@@ -838,7 +837,7 @@ fun AnalysisShopScreen(
                                                     if (success) {
                                                         Toast.makeText(context, "Unlocked ${pet.displayName}!", Toast.LENGTH_SHORT).show()
                                                     } else {
-                                                        Toast.makeText(context, "Not enough coins! Need ${pet.cost} coins.", Toast.LENGTH_SHORT).show()
+                                                        Toast.makeText(context, "Not enough coins! Need $petCost coins.", Toast.LENGTH_SHORT).show()
                                                     }
                                                 }
                                             },
@@ -855,7 +854,7 @@ fun AnalysisShopScreen(
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Spacer(modifier = Modifier.width(4.dp))
-                                            Text("${pet.cost} Coins", fontWeight = FontWeight.Bold)
+                                            Text("$petCost Coins", fontWeight = FontWeight.Bold)
                                         }
                                     }
                                 }
@@ -1059,9 +1058,15 @@ fun AnalysisShopScreen(
                             )
                         }
 
-                        AppThemePalette.entries.forEach { theme ->
-                            val isEquipped = equippedThemeId.equals(theme.id, ignoreCase = true)
-                            val isUnlocked = theme == AppThemePalette.DEFAULT || unlockedThemesSet.contains(theme.id.uppercase())
+                        val themesList = listOf(
+                            Triple("NATURE", "Nature Green", 250 to "Lush emerald grove aesthetic"),
+                            Triple("DARK", "Dark Mode", 200 to "High-contrast midnight twilight pixel palette")
+                        )
+
+                        themesList.forEach { (themeId, displayName, details) ->
+                            val (cost, desc) = details
+                            val isEquipped = equippedThemeId.equals(themeId, ignoreCase = true)
+                            val isUnlocked = themeId == "NATURE" || unlockedThemesSet.contains(themeId.uppercase())
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1096,22 +1101,14 @@ fun AnalysisShopScreen(
                                                 .padding(4.dp),
                                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                                         ) {
-                                            when (theme) {
-                                                AppThemePalette.DEFAULT -> {
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF2E7D32), CircleShape))
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE91E63), CircleShape))
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF0288D1), CircleShape))
-                                                }
-                                                AppThemePalette.PINK -> {
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFF5277), CircleShape))
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE91E63), CircleShape))
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFFFE3E8), CircleShape))
-                                                }
-                                                AppThemePalette.BLUE -> {
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF2196F3), CircleShape))
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFF00BCD4), CircleShape))
-                                                    Box(modifier = Modifier.size(16.dp).background(Color(0xFFE1F5FE), CircleShape))
-                                                }
+                                            if (themeId == "NATURE") {
+                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF2E7D32), CircleShape))
+                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF81C784), CircleShape))
+                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFFC8E6C9), CircleShape))
+                                            } else {
+                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF1E293B), CircleShape))
+                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF334155), CircleShape))
+                                                Box(modifier = Modifier.size(16.dp).background(Color(0xFF64748B), CircleShape))
                                             }
                                         }
 
@@ -1119,12 +1116,12 @@ fun AnalysisShopScreen(
 
                                         Column {
                                             Text(
-                                                text = theme.displayName,
+                                                text = displayName,
                                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = theme.description,
+                                                text = desc,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1162,7 +1159,7 @@ fun AnalysisShopScreen(
                                         }
                                         isUnlocked -> {
                                             OutlinedButton(
-                                                onClick = { viewModel.equipTheme(theme) },
+                                                onClick = { viewModel.equipTheme(themeId) },
                                                 shape = RoundedCornerShape(8.dp),
                                                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                             ) {
@@ -1172,11 +1169,11 @@ fun AnalysisShopScreen(
                                         else -> {
                                             Button(
                                                 onClick = {
-                                                    viewModel.purchaseTheme(theme) { success ->
+                                                    viewModel.purchaseTheme(themeId, cost) { success ->
                                                         if (success) {
-                                                            Toast.makeText(context, "Unlocked ${theme.displayName}!", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "Unlocked $displayName!", Toast.LENGTH_SHORT).show()
                                                         } else {
-                                                            Toast.makeText(context, "Not enough coins! Need ${theme.cost} coins.", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, "Not enough coins! Need $cost coins.", Toast.LENGTH_SHORT).show()
                                                         }
                                                     }
                                                 },
@@ -1193,7 +1190,7 @@ fun AnalysisShopScreen(
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(4.dp))
-                                                Text("${theme.cost} Coins", fontWeight = FontWeight.Bold)
+                                                Text("$cost Coins", fontWeight = FontWeight.Bold)
                                             }
                                         }
                                     }
@@ -1221,17 +1218,15 @@ fun AnalysisShopScreen(
                             )
                         }
 
-                        AppCustomFont.entries.forEach { font ->
-                            val isEquipped = equippedFontId.equals(font.id, ignoreCase = true)
-                            val isUnlocked = font == AppCustomFont.DEFAULT || unlockedFontsSet.contains(font.id.uppercase())
-                            val sampleFontFamily = when (font) {
-                                AppCustomFont.DEFAULT -> PixelifySansFontFamily
-                                AppCustomFont.FANCY -> CinzelFontFamily
-                                AppCustomFont.CURSIVE -> PacificoFontFamily
-                                AppCustomFont.RETRO -> RighteousFontFamily
-                                AppCustomFont.MODERN -> PoppinsFontFamily
-                                AppCustomFont.BOLD_SERIF -> PlayfairFontFamily
-                            }
+                        val fontsList = listOf(
+                            Triple("PIXEL", "Pixel Art", Triple(350, "Classic 8-bit retro gaming typography", PixelifySansFontFamily)),
+                            Triple("HANDWRITTEN", "Handwritten", Triple(450, "Flowing cursive study notebook script", PacificoFontFamily))
+                        )
+
+                        fontsList.forEach { (fontId, displayName, details) ->
+                            val (cost, desc, sampleFontFamily) = details
+                            val isEquipped = equippedFontId.equals(fontId, ignoreCase = true)
+                            val isUnlocked = fontId == "PIXEL" || unlockedFontsSet.contains(fontId.uppercase())
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1255,12 +1250,12 @@ fun AnalysisShopScreen(
                                     ) {
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
-                                                text = font.displayName,
+                                                text = displayName,
                                                 style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
                                                 color = MaterialTheme.colorScheme.onSurface
                                             )
                                             Text(
-                                                text = font.description,
+                                                text = desc,
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )
@@ -1297,7 +1292,7 @@ fun AnalysisShopScreen(
                                             }
                                             isUnlocked -> {
                                                 OutlinedButton(
-                                                    onClick = { viewModel.equipFont(font) },
+                                                    onClick = { viewModel.equipFont(fontId) },
                                                     shape = RoundedCornerShape(8.dp),
                                                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
                                                 ) {
@@ -1307,11 +1302,11 @@ fun AnalysisShopScreen(
                                             else -> {
                                                 Button(
                                                     onClick = {
-                                                        viewModel.purchaseFont(font) { success ->
+                                                        viewModel.purchaseFont(fontId, cost) { success ->
                                                             if (success) {
-                                                                Toast.makeText(context, "Unlocked ${font.displayName} font!", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, "Unlocked $displayName font!", Toast.LENGTH_SHORT).show()
                                                             } else {
-                                                                Toast.makeText(context, "Not enough coins! Need ${font.cost} coins.", Toast.LENGTH_SHORT).show()
+                                                                Toast.makeText(context, "Not enough coins! Need $cost coins.", Toast.LENGTH_SHORT).show()
                                                             }
                                                         }
                                                     },
@@ -1328,7 +1323,7 @@ fun AnalysisShopScreen(
                                                         modifier = Modifier.size(16.dp)
                                                     )
                                                     Spacer(modifier = Modifier.width(4.dp))
-                                                    Text("${font.cost} Coins", fontWeight = FontWeight.Bold)
+                                                    Text("$cost Coins", fontWeight = FontWeight.Bold)
                                                 }
                                             }
                                         }

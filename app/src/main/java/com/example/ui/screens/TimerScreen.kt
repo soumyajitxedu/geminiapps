@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -133,6 +134,7 @@ fun TimerScreen(
     val isCustomAudioPlaying by viewModel.isCustomAudioPlaying.collectAsStateWithLifecycle()
     val activeQuoteIndex by viewModel.activeQuoteIndex.collectAsStateWithLifecycle()
     val activeGratitudeIndex by viewModel.activeGratitudeIndex.collectAsStateWithLifecycle()
+    val equippedPet by viewModel.equippedPet.collectAsStateWithLifecycle()
 
     val currentQuote = viewModel.motivationalQuotes.getOrElse(activeQuoteIndex) { "Stay focused!" }
     val currentGratitude = viewModel.gratitudePrompts.getOrElse(activeGratitudeIndex) { "What are you thankful for today?" }
@@ -177,11 +179,11 @@ fun TimerScreen(
         showGiveUpConfirmation = true
     }
 
-    // Calculate growth progress based on countdown or stopwatch
+    // Calculate growth progress based on countdown, pomodoro, or stopwatch
     val growthProgress = when {
         isCompleted -> 1f
         isFailed -> 0f
-        timerMode == FocusTimerMode.COUNTDOWN -> {
+        timerMode == FocusTimerMode.COUNTDOWN || timerMode == FocusTimerMode.POMODORO -> {
             if (isRunning && totalSeconds > 0) {
                 ((totalSeconds - remainingSeconds).toFloat() / totalSeconds.toFloat()).coerceIn(0.15f, 1f)
             } else {
@@ -354,6 +356,9 @@ fun TimerScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         val isCountdown = timerMode == FocusTimerMode.COUNTDOWN
+                        val isStopwatch = timerMode == FocusTimerMode.STOPWATCH
+                        val isPomodoro = timerMode == FocusTimerMode.POMODORO
+
                         ElevatedButton(
                             onClick = { viewModel.setTimerMode(FocusTimerMode.COUNTDOWN) },
                             modifier = Modifier
@@ -364,11 +369,12 @@ fun TimerScreen(
                             colors = ButtonDefaults.elevatedButtonColors(
                                 containerColor = if (isCountdown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
                                 contentColor = if (isCountdown) Color.White else MaterialTheme.colorScheme.onSurface
-                            )
+                            ),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                         ) {
-                            Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Countdown", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Icon(Icons.Default.Timer, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Countdown", fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
                         }
 
                         ElevatedButton(
@@ -379,13 +385,64 @@ fun TimerScreen(
                                 .testTag("mode_stopwatch_button"),
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.elevatedButtonColors(
-                                containerColor = if (!isCountdown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                                contentColor = if (!isCountdown) Color.White else MaterialTheme.colorScheme.onSurface
-                            )
+                                containerColor = if (isStopwatch) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                contentColor = if (isStopwatch) Color.White else MaterialTheme.colorScheme.onSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
                         ) {
-                            Icon(Icons.Default.HourglassBottom, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Stopwatch", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Icon(Icons.Default.HourglassBottom, contentDescription = null, modifier = Modifier.size(15.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Stopwatch", fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                        }
+
+                        ElevatedButton(
+                            onClick = { viewModel.setTimerMode(FocusTimerMode.POMODORO) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .testTag("mode_pomodoro_button"),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.elevatedButtonColors(
+                                containerColor = if (isPomodoro) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                                contentColor = if (isPomodoro) Color.White else MaterialTheme.colorScheme.onSurface
+                            ),
+                            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Text("🍅", fontSize = 14.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Pomodoro", fontWeight = FontWeight.Bold, fontSize = 11.sp, maxLines = 1)
+                        }
+                    }
+                }
+            }
+
+            // Pomodoro Mode Info Banner (when IDLE)
+            if (!isRunning && timerMode == FocusTimerMode.POMODORO) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("🍅", fontSize = 24.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "25-Minute Pomodoro Focus",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "Fixed 25m focus sprint. Earn 25 coins & grow your daily count on completion!",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -949,16 +1006,19 @@ fun TimerScreen(
             }
 
             // Animated Pet at bottom with motivational speech bubble (tappable to randomize quote)
-            PixelAnimatedPet(
-                speechQuote = if (isRunning) "Focus on $selectedChapter! $currentQuote".take(42) + "..." else "Ready to plant a tree! Pick your subject! 🌿",
-                modifier = Modifier
-                    .padding(top = 4.dp, bottom = 4.dp)
-                    .clickable {
-                        viewModel.soundEffectManager.playUiSelect()
-                        viewModel.randomizeQuote()
-                    }
-                    .testTag("animated_pet_widget")
-            )
+            if (equippedPet != "NONE") {
+                PixelAnimatedPet(
+                    equippedPetId = equippedPet,
+                    speechQuote = if (isRunning) "Focus on $selectedChapter! $currentQuote".take(42) + "..." else "Ready to plant a tree! Pick your subject! 🌿",
+                    modifier = Modifier
+                        .padding(top = 4.dp, bottom = 4.dp)
+                        .clickable {
+                            viewModel.soundEffectManager.playUiSelect()
+                            viewModel.randomizeQuote()
+                        }
+                        .testTag("animated_pet_widget")
+                )
+            }
         }
 
         // Chapter Selection Modal Dialog

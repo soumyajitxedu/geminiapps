@@ -141,6 +141,8 @@ fun FocusGroveTheme(
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when (equippedTheme.uppercase()) {
+        "DARK" -> PixelDarkColorScheme
+        "NATURE" -> PixelLightColorScheme
         "PINK" -> if (darkTheme) PinkDarkColorScheme else PinkLightColorScheme
         "BLUE" -> if (darkTheme) BlueDarkColorScheme else BlueLightColorScheme
         else -> if (darkTheme) PixelDarkColorScheme else PixelLightColorScheme

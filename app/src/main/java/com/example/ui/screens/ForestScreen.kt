@@ -90,6 +90,7 @@ fun ForestScreen(
     val completedChapters by viewModel.completedChaptersCount.collectAsStateWithLifecycle()
     val totalChapters by viewModel.totalChaptersCount.collectAsStateWithLifecycle()
     val userProfile by viewModel.userProfile.collectAsStateWithLifecycle()
+    val dailyPomodoroCount by viewModel.dailyPomodoroCount.collectAsStateWithLifecycle()
 
     val isOnboarded = userProfile?.isOnboarded == true
     var showEditProfileDialog by remember { mutableStateOf(false) }
@@ -189,6 +190,37 @@ fun ForestScreen(
                                         style = MaterialTheme.typography.titleSmall.copy(
                                             fontWeight = FontWeight.ExtraBold,
                                             color = Color(0xFFEA580C)
+                                        )
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            // Daily Pomodoro Badge
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Color(0xFFEF4444).copy(alpha = 0.15f),
+                                tonalElevation = 2.dp,
+                                modifier = Modifier
+                                    .testTag("pomodoro_badge")
+                                    .border(
+                                        1.dp,
+                                        Color(0xFFEF4444).copy(alpha = 0.6f),
+                                        RoundedCornerShape(20.dp)
+                                    )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("🍅", fontSize = 14.sp)
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${dailyPomodoroCount}p",
+                                        style = MaterialTheme.typography.titleSmall.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color(0xFFDC2626)
                                         )
                                     )
                                 }

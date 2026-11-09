@@ -89,6 +89,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val soundEffectManager = SoundEffectManager(application)
     val notificationManager = TimerNotificationManager(application)
+    val shopManager = com.example.data.ShopManager.getInstance(application)
+    val shopCoins: StateFlow<Int> = shopManager.coins
+    val equippedTheme: StateFlow<String> = shopManager.equippedTheme
+    val equippedFont: StateFlow<String> = shopManager.equippedFont
+    val equippedPet: StateFlow<String> = shopManager.equippedPet
+    val dailyPomodoroCount: StateFlow<Int> = shopManager.dailyPomodoroCount
 
     val userProfile: StateFlow<com.example.data.model.UserProfileEntity?> = repository.userProfile
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -508,57 +514,104 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Pet Shop & Equipment
+    // Pet Shop & Equipment (Stored via SharedPreferences in ShopManager)
     fun purchasePet(pet: PetSpecies, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val success = repository.purchasePet(pet)
-            if (success) {
-                soundEffectManager.playTreeGrownChime()
-            }
-            onResult(success)
+        val cost = when (pet) {
+            PetSpecies.DUCK -> 100
+            PetSpecies.SHEEP -> 150
+            PetSpecies.RABBIT -> 200
         }
+        val success = shopManager.purchasePet(pet.id, cost)
+        if (success) {
+            soundEffectManager.playTreeGrownChime()
+        }
+        onResult(success)
+    }
+
+    fun purchasePet(petId: String, cost: Int, onResult: (Boolean) -> Unit) {
+        val success = shopManager.purchasePet(petId, cost)
+        if (success) {
+            soundEffectManager.playTreeGrownChime()
+        }
+        onResult(success)
     }
 
     fun equipPet(pet: PetSpecies) {
-        viewModelScope.launch {
-            repository.equipPet(pet)
-            soundEffectManager.playUiClick()
-        }
+        shopManager.equipPet(pet.id)
+        soundEffectManager.playUiClick()
     }
 
-    // Theme & Font Customization
+    fun equipPet(petId: String) {
+        shopManager.equipPet(petId)
+        soundEffectManager.playUiClick()
+    }
+
+    // Theme Customization (Stored via SharedPreferences in ShopManager)
     fun purchaseTheme(theme: AppThemePalette, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val success = repository.purchaseTheme(theme)
-            if (success) {
-                soundEffectManager.playTreeGrownChime()
-            }
-            onResult(success)
+        val themeId = when (theme) {
+            AppThemePalette.DEFAULT -> "NATURE"
+            AppThemePalette.PINK -> "NATURE"
+            AppThemePalette.BLUE -> "DARK"
         }
+        val cost = if (themeId == "DARK") 200 else 250
+        val success = shopManager.purchaseTheme(themeId, cost)
+        if (success) {
+            soundEffectManager.playTreeGrownChime()
+        }
+        onResult(success)
+    }
+
+    fun purchaseTheme(themeId: String, cost: Int, onResult: (Boolean) -> Unit) {
+        val success = shopManager.purchaseTheme(themeId, cost)
+        if (success) {
+            soundEffectManager.playTreeGrownChime()
+        }
+        onResult(success)
     }
 
     fun equipTheme(theme: AppThemePalette) {
-        viewModelScope.launch {
-            repository.equipTheme(theme)
-            soundEffectManager.playUiClick()
+        val themeId = when (theme) {
+            AppThemePalette.DEFAULT -> "NATURE"
+            AppThemePalette.PINK -> "NATURE"
+            AppThemePalette.BLUE -> "DARK"
         }
+        shopManager.equipTheme(themeId)
+        soundEffectManager.playUiClick()
     }
 
+    fun equipTheme(themeId: String) {
+        shopManager.equipTheme(themeId)
+        soundEffectManager.playUiClick()
+    }
+
+    // Font Customization (Stored via SharedPreferences in ShopManager)
     fun purchaseFont(font: AppCustomFont, onResult: (Boolean) -> Unit) {
-        viewModelScope.launch {
-            val success = repository.purchaseFont(font)
-            if (success) {
-                soundEffectManager.playTreeGrownChime()
-            }
-            onResult(success)
+        val fontId = if (font == AppCustomFont.CURSIVE) "HANDWRITTEN" else "PIXEL"
+        val cost = if (fontId == "HANDWRITTEN") 450 else 350
+        val success = shopManager.purchaseFont(fontId, cost)
+        if (success) {
+            soundEffectManager.playTreeGrownChime()
         }
+        onResult(success)
+    }
+
+    fun purchaseFont(fontId: String, cost: Int, onResult: (Boolean) -> Unit) {
+        val success = shopManager.purchaseFont(fontId, cost)
+        if (success) {
+            soundEffectManager.playTreeGrownChime()
+        }
+        onResult(success)
     }
 
     fun equipFont(font: AppCustomFont) {
-        viewModelScope.launch {
-            repository.equipFont(font)
-            soundEffectManager.playUiClick()
-        }
+        val fontId = if (font == AppCustomFont.CURSIVE) "HANDWRITTEN" else "PIXEL"
+        shopManager.equipFont(fontId)
+        soundEffectManager.playUiClick()
+    }
+
+    fun equipFont(fontId: String) {
+        shopManager.equipFont(fontId)
+        soundEffectManager.playUiClick()
     }
 
     fun setCustomBackgroundUri(uri: android.net.Uri?) {
@@ -642,6 +695,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setTimerMode(mode: FocusTimerMode) {
         if (_timerStatus.value == TimerStatus.RUNNING) return
         _timerMode.value = mode
+        if (mode == FocusTimerMode.POMODORO) {
+            _customMinutes.value = 25
+            val demo = economy.value?.demoModeEnabled == true
+            val duration = if (demo) 10 else (25 * 60)
+            _totalDurationSeconds.value = duration
+            _remainingSeconds.value = duration
+        }
         resetTimerToIdle()
     }
 
@@ -706,8 +766,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val speciesName = TreeSpecies.fromId(economy.value?.selectedSpecies ?: "OAK").displayName
 
-        if (_timerMode.value == FocusTimerMode.COUNTDOWN) {
-            val duration = if (demo) 10 else (_customMinutes.value * 60)
+        if (_timerMode.value == FocusTimerMode.COUNTDOWN || _timerMode.value == FocusTimerMode.POMODORO) {
+            val duration = if (_timerMode.value == FocusTimerMode.POMODORO) {
+                if (demo) 10 else (25 * 60)
+            } else {
+                if (demo) 10 else (_customMinutes.value * 60)
+            }
             _totalDurationSeconds.value = duration
             _remainingSeconds.value = duration
 
@@ -778,6 +842,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val subject = _selectedSubject.value
         val chapter = _selectedChapter.value
 
+        val coinsEarned = if (_timerMode.value == FocusTimerMode.POMODORO) 25 else 10
+        if (_timerMode.value == FocusTimerMode.POMODORO) {
+            shopManager.incrementDailyPomodoroCount()
+        }
+        shopManager.addCoins(coinsEarned)
+
         viewModelScope.launch {
             repository.recordSession(
                 species = species,
@@ -789,7 +859,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _lastSessionResult.value = SessionResult(
                 species = species,
                 status = TreeStatus.ALIVE,
-                coinsEarned = 10,
+                coinsEarned = coinsEarned,
                 durationSeconds = duration,
                 subjectTag = subject,
                 chapterTag = chapter
@@ -916,7 +986,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         notificationManager.cancelNotification()
         _timerStatus.value = TimerStatus.IDLE
         val demo = economy.value?.demoModeEnabled == true
-        val duration = if (demo) 10 else (_customMinutes.value * 60)
+        val duration = if (_timerMode.value == FocusTimerMode.POMODORO) {
+            if (demo) 10 else (25 * 60)
+        } else {
+            if (demo) 10 else (_customMinutes.value * 60)
+        }
         _totalDurationSeconds.value = duration
         _remainingSeconds.value = duration
         _elapsedStopwatchSeconds.value = 0

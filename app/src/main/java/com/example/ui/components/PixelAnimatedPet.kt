@@ -66,10 +66,15 @@ enum class PetType(val displayName: String, val emoji: String) {
 @Composable
 fun PixelAnimatedPet(
     modifier: Modifier = Modifier,
+    equippedPetId: String = "DUCK",
     speechQuote: String = "Quack! You got this! Keep focusing!"
 ) {
-    var petType by remember { mutableIntStateOf(0) }
-    val currentPet = PetType.entries[petType % PetType.entries.size]
+    val resolvedPet = when (equippedPetId.uppercase()) {
+        "SHEEP" -> PetType.SHEEP
+        "RABBIT" -> PetType.RABBIT
+        else -> PetType.DUCK
+    }
+    var currentPet by remember(equippedPetId) { mutableStateOf(resolvedPet) }
 
     val infiniteTransition = rememberInfiniteTransition(label = "petMovement")
 
@@ -142,7 +147,9 @@ fun PixelAnimatedPet(
                 modifier = Modifier
                     .clip(RoundedCornerShape(10.dp))
                     .clickable {
-                        petType = (petType + 1) % PetType.entries.size
+                        val allTypes = PetType.entries
+                        val nextIdx = (allTypes.indexOf(currentPet) + 1) % allTypes.size
+                        currentPet = allTypes[nextIdx]
                     }
                     .padding(horizontal = 4.dp)
             ) {
@@ -173,7 +180,9 @@ fun PixelAnimatedPet(
                     .size(54.dp)
                     .offset { IntOffset(x = 0, y = bobOffset) }
                     .clickable {
-                        petType = (petType + 1) % PetType.entries.size
+                        val allTypes = PetType.entries
+                        val nextIdx = (allTypes.indexOf(currentPet) + 1) % allTypes.size
+                        currentPet = allTypes[nextIdx]
                     }
             ) {
                 when (currentPet) {

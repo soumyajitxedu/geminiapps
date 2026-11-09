@@ -29,7 +29,8 @@ enum class TreeStatus {
 
 enum class FocusTimerMode {
     COUNTDOWN,
-    STOPWATCH
+    STOPWATCH,
+    POMODORO
 }
 
 enum class PetSpecies(

@@ -258,8 +258,9 @@ val Typography = PixelTypography
 
 fun getAppTypography(equippedFont: String = "DEFAULT", usePixelFont: Boolean = true): Typography {
     val family = when (equippedFont.uppercase()) {
+        "PIXEL" -> PixelifySansFontFamily
+        "HANDWRITTEN", "CURSIVE" -> PacificoFontFamily
         "FANCY" -> CinzelFontFamily
-        "CURSIVE" -> PacificoFontFamily
         "RETRO" -> RighteousFontFamily
         "MODERN" -> PoppinsFontFamily
         "BOLD_SERIF" -> PlayfairFontFamily
