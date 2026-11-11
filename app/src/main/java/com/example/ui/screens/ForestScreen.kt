@@ -23,6 +23,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MonetizationOn
@@ -35,6 +37,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -83,6 +86,7 @@ fun ForestScreen(
     viewModel: MainViewModel,
     onNavigateToTimer: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    onOpenTimetable: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val trees by viewModel.trees.collectAsStateWithLifecycle()
@@ -324,7 +328,11 @@ fun ForestScreen(
                         }
 
                         Card(
-                            modifier = Modifier.weight(1.1f),
+                            modifier = Modifier
+                                .weight(1.1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { onOpenTimetable() }
+                                .testTag("forest_board_exam_card"),
                             colors = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f)
                             ),
@@ -335,7 +343,7 @@ fun ForestScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Eco,
+                                    imageVector = Icons.Default.CalendarMonth,
                                     contentDescription = null,
                                     tint = MaterialTheme.colorScheme.onSecondaryContainer,
                                     modifier = Modifier.size(18.dp)
@@ -343,7 +351,7 @@ fun ForestScreen(
                                 Spacer(modifier = Modifier.width(6.dp))
                                 Column {
                                     Text(
-                                        text = "ICSE Board Exam",
+                                        text = "ICSE 2027 Exam",
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                                     )
@@ -355,6 +363,27 @@ fun ForestScreen(
                                 }
                             }
                         }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    FilledTonalButton(
+                        onClick = onOpenTimetable,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("forest_view_timetable_btn"),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "📅 ICSE 2027 Timetable & Strict Exam Rules",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))

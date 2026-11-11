@@ -52,8 +52,10 @@ import com.example.ui.screens.TimerScreen
 
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.LocalLibrary
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.LocalLibrary
+import com.example.ui.screens.ExamRulesTimetableScreen
 import com.example.ui.screens.LibraryScreen
 import com.example.ui.screens.ScheduleScreen
 
@@ -99,6 +101,7 @@ fun FocusGroveApp(
 ) {
     var currentScreen by remember { mutableStateOf(GroveScreen.FOREST) }
     var isSettingsOpen by remember { mutableStateOf(false) }
+    var isTimetableOpen by remember { mutableStateOf(false) }
 
     // Lifecycle observer: kills the tree ONLY if user locks screen or leaves the app (ON_STOP)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -118,6 +121,13 @@ fun FocusGroveApp(
         SettingsScreen(
             viewModel = viewModel,
             onClose = { isSettingsOpen = false },
+            onOpenTimetable = { isTimetableOpen = true },
+            modifier = modifier
+        )
+    } else if (isTimetableOpen) {
+        ExamRulesTimetableScreen(
+            viewModel = viewModel,
+            onClose = { isTimetableOpen = false },
             modifier = modifier
         )
     } else {
@@ -191,6 +201,19 @@ fun FocusGroveApp(
                         IconButton(
                             onClick = {
                                 viewModel.soundEffectManager.playUiClick()
+                                isTimetableOpen = true
+                            },
+                            modifier = Modifier.testTag("top_bar_timetable_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = "ICSE 2027 Timetable & Rules",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                        IconButton(
+                            onClick = {
+                                viewModel.soundEffectManager.playUiClick()
                                 isSettingsOpen = true
                             },
                             modifier = Modifier.testTag("forest_settings_button")
@@ -260,7 +283,8 @@ fun FocusGroveApp(
                         GroveScreen.FOREST -> ForestScreen(
                             viewModel = viewModel,
                             onNavigateToTimer = { currentScreen = GroveScreen.TIMER },
-                            onOpenSettings = { isSettingsOpen = true }
+                            onOpenSettings = { isSettingsOpen = true },
+                            onOpenTimetable = { isTimetableOpen = true }
                         )
                         GroveScreen.TIMER -> TimerScreen(
                             viewModel = viewModel,
@@ -275,7 +299,8 @@ fun FocusGroveApp(
                             viewModel = viewModel
                         )
                         GroveScreen.SYLLABUS -> SyllabusScreen(
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            onOpenTimetable = { isTimetableOpen = true }
                         )
                         GroveScreen.QUIZZES -> StudyToolsScreen(
                             viewModel = viewModel
